@@ -2,7 +2,7 @@
  * Кнопки, команды и значки бота — в одном месте, чтобы меню Telegram,
  * клавиатура внизу чата и список «Все команды» не расходились.
  *
- * Клавиатура внизу (иконка с четырьмя точками в поле ввода) — главный пульт.
+ * Клавиатура внизу (открывается значком с четырьмя точками, сворачивается стрелкой «⌄») — главный пульт.
  * У неё два экрана с переходами между ними:
  *   главный  — самое частое: расход, доход, сегодня, месяц, счета, «Команды»;
  *   команды  — все команды бота кнопками и «‹ Назад».
@@ -162,11 +162,18 @@ function keyButton(id: ActionId): KeyboardButton.CommonButton {
 	return style ? { text: label, style } : { text: label };
 }
 
+/**
+ * Клавиатуру можно свернуть: в поле ввода у Telegram появляется стрелка «⌄»,
+ * а открыть обратно — значком с четырьмя точками. Постоянная клавиатура
+ * (is_persistent) стрелку прячет — меню тогда не убрать с экрана.
+ * После нажатия кнопки клавиатура не исчезает (one_time_keyboard выключен).
+ */
 function replyKeyboard(rows: ActionId[][]): ReplyKeyboardMarkup {
 	return {
 		keyboard: rows.map((row) => row.map(keyButton)),
 		resize_keyboard: true,
-		is_persistent: true,
+		is_persistent: false,
+		one_time_keyboard: false,
 		input_field_placeholder: INPUT_PLACEHOLDER
 	};
 }

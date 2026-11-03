@@ -62,9 +62,16 @@ describe('клавиатура внизу', () => {
 		expect(commandsKeyboard.keyboard.flat()).toContainEqual({ text: '‹ Назад', style: 'primary' });
 	});
 
-	it('клавиатура всегда под рукой, компактная, с подсказкой в поле ввода', () => {
+	it('клавиатуру можно свернуть стрелкой, после нажатия она не пропадает', () => {
 		for (const kb of [mainKeyboard, commandsKeyboard]) {
-			expect(kb.is_persistent).toBe(true);
+			// is_persistent: true прячет у Telegram стрелку «свернуть»
+			expect(kb.is_persistent).toBe(false);
+			expect(kb.one_time_keyboard).toBe(false);
+		}
+	});
+
+	it('клавиатура компактная, с подсказкой в поле ввода', () => {
+		for (const kb of [mainKeyboard, commandsKeyboard]) {
 			expect(kb.resize_keyboard).toBe(true);
 			expect(kb.input_field_placeholder).toBe(INPUT_PLACEHOLDER);
 		}
