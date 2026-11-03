@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DESCRIPTION, SHORT_DESCRIPTION, syncProfile } from './profile.ts';
-import { COMMANDS, DIM_EMOJI } from './ui.ts';
+import { DIM_EMOJI } from './ui.ts';
 
-/** Telegram с заданным текущим профилем; set* записываются. */
+/** Telegram с заданным текущим профилем; изменения записываются. */
 function api(current: {
 	commands?: { command: string; description: string }[];
 	description?: string;
@@ -11,7 +11,7 @@ function api(current: {
 }) {
 	return {
 		getMyCommands: vi.fn(async () => current.commands ?? []),
-		setMyCommands: vi.fn(async () => true as const),
+		deleteMyCommands: vi.fn(async () => true as const),
 		getMyDescription: vi.fn(async () => ({ description: current.description ?? '' })),
 		setMyDescription: vi.fn(async () => true as const),
 		getMyShortDescription: vi.fn(async () => ({ short_description: current.short ?? '' })),
@@ -21,49 +21,45 @@ function api(current: {
 	};
 }
 
+const ready = { description: DESCRIPTION, short: SHORT_DESCRIPTION, menu: 'default' };
+
 describe('syncProfile', () => {
-	it('новый бот — ставит команды, описания и кнопку «Меню»', async () => {
-		const a = api({});
+	it('прошлая версия (команды в «Меню») — убирает команды, ставит описания', async () => {
+		const a = api({
+			commands: [{ command: 'today', description: 'Операции за день' }],
+			description: 'старое',
+			short: 'старое',
+			menu: 'commands'
+		});
 		const changed = await syncProfile(a as never);
-		expect(changed).toEqual(['команды', 'описание', 'короткое описание', 'кнопка «Меню»']);
-		expect(a.setMyCommands).toHaveBeenCalledWith(COMMANDS);
+		expect(changed).toEqual(['убран список команд', 'описание', 'короткое описание']);
+		expect(a.deleteMyCommands).toHaveBeenCalledOnce();
 		expect(a.setMyDescription).toHaveBeenCalledWith(DESCRIPTION);
 		expect(a.setMyShortDescription).toHaveBeenCalledWith(SHORT_DESCRIPTION);
-		expect(a.setChatMenuButton).toHaveBeenCalledWith({ menu_button: { type: 'commands' } });
 	});
 
-	it('всё уже как надо — ничего не трогает (лимиты Telegram целы)', async () => {
-		const a = api({
-			commands: COMMANDS.map((c) => ({ ...c })),
-			description: DESCRIPTION,
-			short: SHORT_DESCRIPTION,
-			menu: 'commands'
-		});
-		expect(await syncProfile(a as never)).toEqual([]);
-		expect(a.setMyCommands).not.toHaveBeenCalled();
-		expect(a.setMyDescription).not.toHaveBeenCalled();
-		expect(a.setMyShortDescription).not.toHaveBeenCalled();
-		expect(a.setChatMenuButton).not.toHaveBeenCalled();
+	// так Telegram отвечает о кнопке без своих настроек — с пустым списком команд её не видно
+	it.each(['commands', 'default'])(
+		'всё уже как надо (кнопка «%s») — ничего не трогает, лимиты Telegram целы',
+		async (menu) => {
+			const a = api({ ...ready, menu });
+			expect(await syncProfile(a as never)).toEqual([]);
+			expect(a.deleteMyCommands).not.toHaveBeenCalled();
+			expect(a.setMyDescription).not.toHaveBeenCalled();
+			expect(a.setMyShortDescription).not.toHaveBeenCalled();
+			expect(a.setChatMenuButton).not.toHaveBeenCalled();
+		}
+	);
+
+	it('команды задали заново (например, в BotFather) — снова убирает', async () => {
+		const a = api({ ...ready, commands: [{ command: 'start', description: 'Старт' }] });
+		expect(await syncProfile(a as never)).toEqual(['убран список команд']);
 	});
 
-	it('старый набор команд (прошлая версия) — обновляет только команды', async () => {
-		const a = api({
-			commands: [{ command: 'today', description: 'Операции за сегодня' }],
-			description: DESCRIPTION,
-			short: SHORT_DESCRIPTION,
-			menu: 'commands'
-		});
-		expect(await syncProfile(a as never)).toEqual(['команды']);
-	});
-
-	it('та же команда с другим описанием — тоже обновляет', async () => {
-		const a = api({
-			commands: COMMANDS.map((c, i) => (i === 0 ? { ...c, description: 'другое' } : c)),
-			description: DESCRIPTION,
-			short: SHORT_DESCRIPTION,
-			menu: 'commands'
-		});
-		expect(await syncProfile(a as never)).toEqual(['команды']);
+	it('на месте «Меню» поставили мини-приложение — возвращает обычную', async () => {
+		const a = api({ ...ready, menu: 'web_app' });
+		expect(await syncProfile(a as never)).toEqual(['убрана кнопка «Меню»']);
+		expect(a.setChatMenuButton).toHaveBeenCalledWith({ menu_button: { type: 'default' } });
 	});
 });
 
@@ -73,9 +69,10 @@ describe('описания бота', () => {
 		expect(SHORT_DESCRIPTION.length).toBeLessThanOrEqual(120);
 	});
 
-	it('объясняют, как начать, и без тусклых значков', () => {
-		expect(DESCRIPTION).toContain('250 продукты');
+	it('по-украински, объясняют, как начать, и без тусклых значков', () => {
+		expect(DESCRIPTION).toContain('250 продукти');
 		expect(DESCRIPTION).toContain('Настройки → Telegram-бот');
+		expect(SHORT_DESCRIPTION).toContain('Облік витрат');
 		for (const e of DIM_EMOJI) {
 			expect(DESCRIPTION).not.toContain(e);
 			expect(SHORT_DESCRIPTION).not.toContain(e);

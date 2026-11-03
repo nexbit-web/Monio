@@ -15,15 +15,14 @@ import {
 	dayKeyOf,
 	dayRange,
 	daysInMonth,
-	formatDayShort,
 	isDayKey,
 	isMonthKey,
 	monthKeyOf,
-	monthName,
 	monthRange,
 	shiftMonth,
 	zonedParts
 } from '../../date.ts';
+import { formatDayShort, monthName } from './dates.ts';
 import { learnableWord, matchCategory } from '../finance/categorize.ts';
 import { extractAccount, parseEntry } from './parse.ts';
 import {
@@ -37,7 +36,9 @@ import {
 	NO_ACCOUNTS,
 	NO_AMOUNT,
 	ONLY_TEXT,
+	T,
 	UNKNOWN_COMMAND,
+	WELCOME_BACK,
 	askAmountText,
 	askCategoryText,
 	balanceText,
@@ -69,6 +70,7 @@ import {
 	commandsKeyboard,
 	grid,
 	inline,
+	isOldLabel,
 	mainKeyboard,
 	matchButton,
 	type ActionId
@@ -84,10 +86,10 @@ export type BotOptions = {
 /** Сколько ждём сумму после выбора категории кнопкой. */
 export const PENDING_TTL_MS = 15 * 60_000;
 
-/** Надписи кнопок прошлой версии: если нажали такую — пришлём новую клавиатуру. */
-const OLD_LABELS = new Set(['➖ Расход', '➕ Доход', '💰 Баланс', '🕘 Последние']);
-
 const kindCode = (kind: Kind) => (kind === 'EXPENSE' ? 'E' : 'I');
+
+/** Категории «всё подряд»: выбор такой не учит бота новому слову. */
+const CATCH_ALL = new Set(['Другое', 'Інше']);
 
 export function createBot(token: string, db: BotStore, options: BotOptions = {}): Bot<BotContext> {
 	const store = withLinkCache(db);
@@ -142,7 +144,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		}
 
 		const link = await store.link(telegramId);
-		await ctx.reply(link ? `👋 С возвращением!\n\n${HELP}` : NOT_LINKED, {
+		await ctx.reply(link ? WELCOME_BACK : NOT_LINKED, {
 			parse_mode: 'HTML',
 			reply_markup: link ? mainKeyboard : { remove_keyboard: true }
 		});
@@ -198,10 +200,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 	async function runAction(ctx: BotContext, id: ActionId, oldKeyboard = false) {
 		// Ушёл в другой раздел — значит, сумму для выбранной категории уже не ждём.
 		if (id !== 'expense' && id !== 'income') await clearPending(ctx);
-		if (oldKeyboard)
-			await ctx.reply('✨ Обновил кнопки внизу — теперь всё в одном месте.', {
-				reply_markup: mainKeyboard
-			});
+		if (oldKeyboard) await ctx.reply(T.keyboardUpdated, { reply_markup: mainKeyboard });
 		await actions[id](ctx);
 	}
 
@@ -211,7 +210,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const text = ctx.message.text;
 		if (text.startsWith('/')) return next();
 		const id = matchButton(text);
-		if (id) return runAction(ctx, id, OLD_LABELS.has(text.trim()));
+		if (id) return runAction(ctx, id, isOldLabel(text));
 		await record(ctx, text);
 	});
 
@@ -286,7 +285,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			...grid(
 				categories.filter((c) => c.kind === kind).map((c) => btn(plainIconed(c), `pick:${c.id}`))
 			),
-			[btn('✕ Отмена', 'unpick')]
+			[btn(T.cancel, 'unpick')]
 		]);
 	}
 
@@ -312,23 +311,21 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const { userId, telegramId } = me(ctx);
 		const category = (await store.categories(userId)).find((c) => c.id === ctx.match[1]);
 		if (!category) {
-			await ctx.answerCallbackQuery({ text: 'Категория не найдена — выбери заново' });
+			await ctx.answerCallbackQuery({ text: T.categoryGone });
 			return;
 		}
 		await Promise.all([store.setPending(telegramId, category.id), ctx.answerCallbackQuery()]);
 		await edit(
 			ctx,
 			askAmountText(category),
-			inline([
-				[btn('‹ Другая категория', `ask:${kindCode(category.kind)}`), btn('✕ Отмена', 'unpick')]
-			])
+			inline([[btn(T.otherCategory, `ask:${kindCode(category.kind)}`), btn(T.cancel, 'unpick')]])
 		);
 	});
 
 	bot.callbackQuery('unpick', async (ctx) => {
 		await Promise.all([
 			store.setPending(me(ctx).telegramId, null),
-			ctx.answerCallbackQuery({ text: 'Отменено' })
+			ctx.answerCallbackQuery({ text: T.cancelled })
 		]);
 		await ctx.deleteMessage().catch(() => ctx.editMessageReplyMarkup().catch(() => {}));
 	});
@@ -340,8 +337,8 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		categories: Category[],
 		mode: 'view' | 'categories' = 'view'
 	): InlineKeyboardMarkup {
-		const remove = btn('✕ Удалить', `del:${tx.id}`, 'danger');
-		const earlier = btn('⏪ −1 день', `back:${tx.id}`);
+		const remove = btn(T.remove, `del:${tx.id}`, 'danger');
+		const earlier = btn(T.dayEarlier, `back:${tx.id}`);
 
 		if (tx.type === 'TRANSFER') return inline([[earlier, remove]]);
 
@@ -359,19 +356,19 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 					)
 			);
 			rows.push([
-				btn(kind === 'EXPENSE' ? '↔️ Это доход' : '↔️ Это расход', `tt:${tx.id}`),
-				tx.category ? btn('‹ Назад', `v:${tx.id}`) : remove
+				btn(kind === 'EXPENSE' ? T.toIncome : T.toExpense, `tt:${tx.id}`),
+				tx.category ? btn(T.back, `v:${tx.id}`) : remove
 			]);
 			return inline(rows);
 		}
 
 		return inline([
-			[btn('🏷 Категория', `cats:${tx.id}`), btn('💳 Счёт', `accs:${tx.id}`)],
+			[btn(T.category, `cats:${tx.id}`), btn(T.account, `accs:${tx.id}`)],
 			[earlier, remove]
 		]);
 	}
 
-	/** Траты категории за месяц операции — для строки «В ноябре на …». */
+	/** Траты категории за месяц операции — для строки «У листопаді на …». */
 	async function cardExtra(userId: string, tz: string, tx: Tx): Promise<CardExtra> {
 		if (tx.type !== 'EXPENSE' || !tx.category) return {};
 		const monthKey = monthKeyOf(tx.occurredAt, tz);
@@ -394,7 +391,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		await edit(ctx, cardText(tx, tz, extra), cardKeyboard(tx, categories, mode));
 	}
 
-	const NOT_FOUND = 'Операция не найдена — возможно, её удалили';
+	const NOT_FOUND = T.txGone;
 
 	bot.callbackQuery(/^v:(\w+)$/, async (ctx) => {
 		const tx = await store.tx(me(ctx).userId, ctx.match[1]);
@@ -414,12 +411,12 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const [tx, categories] = await Promise.all([store.tx(userId, txId), store.categories(userId)]);
 		const category = categories.find((c) => c.id === categoryId);
 		if (!tx || !category || tx.type === 'TRANSFER') {
-			await ctx.answerCallbackQuery({ text: 'Операция или категория не найдена' });
+			await ctx.answerCallbackQuery({ text: T.txOrCategoryGone });
 			return;
 		}
 
 		// Запоминаем слово, только если его не узнаёт ни одна категория — иначе это просто исправление.
-		const word = category.name === 'Другое' ? null : learnableWord(tx.note, categories);
+		const word = CATCH_ALL.has(category.name) ? null : learnableWord(tx.note, categories);
 		const updated = await store.updateTx(
 			userId,
 			tx.id,
@@ -432,7 +429,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		}
 		await Promise.all([
 			ctx.answerCallbackQuery({
-				text: word ? `Запомнил: «${word}» → ${category.name}` : plainIconed(category)
+				text: word ? T.learned(word, category.name) : plainIconed(category)
 			}),
 			showCard(ctx, updated)
 		]);
@@ -452,9 +449,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			return;
 		}
 		await Promise.all([
-			ctx.answerCallbackQuery({
-				text: type === 'INCOME' ? 'Теперь это доход' : 'Теперь это расход'
-			}),
+			ctx.answerCallbackQuery({ text: type === 'INCOME' ? T.nowIncome : T.nowExpense }),
 			showCard(ctx, updated, 'categories')
 		]);
 	});
@@ -480,7 +475,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 							)
 						)
 					),
-					[btn('‹ Назад', `v:${txId}`)]
+					[btn(T.back, `v:${txId}`)]
 				])
 			})
 			.catch(ignoreNotModified);
@@ -492,7 +487,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const [tx, accounts] = await Promise.all([store.tx(userId, txId), store.accounts(userId)]);
 		const account = accounts.find((a) => a.id === accountId);
 		if (!tx || !account || tx.type === 'TRANSFER') {
-			await ctx.answerCallbackQuery({ text: 'Операция или счёт не найдены' });
+			await ctx.answerCallbackQuery({ text: T.txOrAccountGone });
 			return;
 		}
 		const updated = await store.updateTx(userId, tx.id, { accountId: account.id });
@@ -518,33 +513,30 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			await ctx.answerCallbackQuery({ text: NOT_FOUND });
 			return;
 		}
-		await Promise.all([
-			ctx.answerCallbackQuery({ text: 'Сдвинул на день раньше' }),
-			showCard(ctx, updated)
-		]);
+		await Promise.all([ctx.answerCallbackQuery({ text: T.movedEarlier }), showCard(ctx, updated)]);
 	});
 
 	bot.callbackQuery(/^del:(\w+)$/, async (ctx) => {
 		const tx = await store.deleteTx(me(ctx).userId, ctx.match[1]);
 		if (!tx) {
-			await ctx.answerCallbackQuery({ text: 'Уже удалено' });
+			await ctx.answerCallbackQuery({ text: T.alreadyDeleted });
 			await ctx.editMessageReplyMarkup().catch(() => {});
 			return;
 		}
-		await Promise.all([ctx.answerCallbackQuery({ text: 'Удалено' }), edit(ctx, deletedText(tx))]);
+		await Promise.all([ctx.answerCallbackQuery({ text: T.deleted }), edit(ctx, deletedText(tx))]);
 	});
 
 	async function askUndo(ctx: BotContext) {
 		const { userId, tz } = me(ctx);
 		const tx = await store.lastCreated(userId);
 		if (!tx) {
-			await ctx.reply('Удалять нечего — операций пока нет.');
+			await ctx.reply(T.nothingToUndo);
 			return;
 		}
-		await ctx.reply(`↩️ <b>Удалить последнюю запись?</b>\n\n${cardText(tx, tz)}`, {
+		await ctx.reply(`${T.askUndo}\n\n${cardText(tx, tz)}`, {
 			parse_mode: 'HTML',
 			reply_markup: inline([
-				[btn('✕ Да, удалить', `del:${tx.id}`, 'danger'), btn('Оставить', `v:${tx.id}`)]
+				[btn(T.yesDelete, `del:${tx.id}`, 'danger'), btn(T.keep, `v:${tx.id}`)]
 			])
 		});
 	}
@@ -562,7 +554,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			[
 				btn(`‹ ${label(prev)}`, `d:${prev}`),
 				...(key < today
-					? [btn(next === today ? 'Сегодня ›' : `${label(next)} ›`, `d:${next}`)]
+					? [btn(next === today ? T.nextToday : `${label(next)} ›`, `d:${next}`)]
 					: [])
 			]
 		]);
@@ -574,7 +566,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 	bot.callbackQuery(/^d:(\d{4}-\d{2}-\d{2})$/, async (ctx) => {
 		const key = ctx.match[1];
 		if (!isDayKey(key) || key > dayKeyOf(new Date(), me(ctx).tz)) {
-			await ctx.answerCallbackQuery({ text: 'Этот день ещё не наступил' });
+			await ctx.answerCallbackQuery({ text: T.futureDay });
 			return;
 		}
 		await Promise.all([ctx.answerCallbackQuery(), showDay(ctx, key, true)]);
@@ -633,7 +625,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 	bot.callbackQuery(/^m:(\d{4}-\d{2})$/, async (ctx) => {
 		const key = ctx.match[1];
 		if (!isMonthKey(key) || key > monthKeyOf(new Date(), me(ctx).tz)) {
-			await ctx.answerCallbackQuery({ text: 'Этот месяц ещё не наступил' });
+			await ctx.answerCallbackQuery({ text: T.futureMonth });
 			return;
 		}
 		await Promise.all([ctx.answerCallbackQuery(), showMonth(ctx, key, true)]);
@@ -672,18 +664,18 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const accounts = await store.accounts(userId);
 		const account = accounts.find((a) => a.id === ctx.match[1]);
 		if (!account) {
-			await ctx.answerCallbackQuery({ text: 'Счёт не найден' });
+			await ctx.answerCallbackQuery({ text: T.accountGone });
 			return;
 		}
 		if (
 			defaultOf(accounts)?.id !== account.id &&
 			!(await store.setDefaultAccount(userId, account.id))
 		) {
-			await ctx.answerCallbackQuery({ text: 'Счёт не найден' });
+			await ctx.answerCallbackQuery({ text: T.accountGone });
 			return;
 		}
 		await Promise.all([
-			ctx.answerCallbackQuery({ text: `Теперь записываю на «${account.name}»` }),
+			ctx.answerCallbackQuery({ text: T.nowRecording(account.name) }),
 			showBalance(ctx, true)
 		]);
 	});
@@ -694,8 +686,8 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const page = rows.slice(0, HISTORY_PAGE);
 		const nav = inline([
 			[
-				...(skip > 0 ? [btn('‹ Новее', `h:${Math.max(0, skip - HISTORY_PAGE)}`)] : []),
-				...(rows.length > HISTORY_PAGE ? [btn('Старее ›', `h:${skip + HISTORY_PAGE}`)] : [])
+				...(skip > 0 ? [btn(T.newer, `h:${Math.max(0, skip - HISTORY_PAGE)}`)] : []),
+				...(rows.length > HISTORY_PAGE ? [btn(T.older, `h:${skip + HISTORY_PAGE}`)] : [])
 			]
 		]);
 		const text = historyText(page, skip, tz);
@@ -712,9 +704,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 
 	bot.on('message:text', (ctx) => ctx.reply(UNKNOWN_COMMAND));
 	bot.on('message', (ctx) => ctx.reply(ONLY_TEXT, { parse_mode: 'HTML' }));
-	bot.on('callback_query:data', (ctx) =>
-		ctx.answerCallbackQuery({ text: 'Кнопка устарела — открой раздел заново' })
-	);
+	bot.on('callback_query:data', (ctx) => ctx.answerCallbackQuery({ text: T.staleButton }));
 
 	bot.catch((err) => {
 		console.error(`[bot] ошибка в обновлении ${err.ctx.update.update_id}:`, err.error);

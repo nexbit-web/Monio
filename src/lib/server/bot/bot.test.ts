@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatMoney } from '../../money.ts';
 import { FAILED, HELP, NOT_LINKED, NO_AMOUNT, ONLY_TEXT, UNKNOWN_COMMAND } from './render.ts';
-import { ACTIONS, COMMANDS, COMMAND_ROWS, MAIN_ROWS } from './ui.ts';
+import { ACTIONS, COMMAND_ORDER, COMMAND_ROWS, MAIN_ROWS } from './ui.ts';
 import { PENDING_TTL_MS } from './bot.ts';
 import {
 	TG_ID,
@@ -73,7 +73,7 @@ describe('доступ', () => {
 		expect(link().userId).toBe(fresh);
 		expect(t.mem.codes.size).toBe(0);
 		expect(t.mem.categories.filter((c) => c.userId === fresh).length).toBeGreaterThan(10);
-		expect(t.tg.lastText()).toContain('аккаунт привязан');
+		expect(t.tg.lastText()).toContain("акаунт прив'язано");
 		expect(keyboardRows(t.tg.lastSent())).toEqual(labels(MAIN_ROWS));
 	});
 
@@ -84,11 +84,11 @@ describe('доступ', () => {
 
 		expect(t.mem.links.get(BigInt(other))?.userId).toBe(t.userId);
 		const alert = t.tg.sent().find((m) => m.chat_id === TG_ID);
-		expect(alert?.text).toContain('подключили ещё один Telegram');
-		expect(alert?.text).toContain('Кто: Тест @tester');
-		expect(alert?.text).toContain('отвяжи его');
+		expect(alert?.text).toContain("під'єднали ще один Telegram");
+		expect(alert?.text).toContain('Хто: Тест @tester');
+		expect(alert?.text).toContain("відв'яжи його");
 		const welcome = t.tg.sent().find((m) => m.chat_id === other);
-		expect(welcome?.text).toContain('аккаунт привязан');
+		expect(welcome?.text).toContain("акаунт прив'язано");
 	});
 
 	it('первая привязка — предупреждать некого', async () => {
@@ -112,7 +112,7 @@ describe('доступ', () => {
 		await t.send('/start once');
 		await t.send('/start once', { from: 7777 });
 		expect(t.mem.links.has(7777n)).toBe(false);
-		expect(t.tg.lastText()).toContain('Ссылка устарела');
+		expect(t.tg.lastText()).toContain('Посилання застаріло');
 	});
 
 	it('/start с просроченным кодом — не привязывает', async () => {
@@ -120,12 +120,12 @@ describe('доступ', () => {
 		t.mem.addCode('old', t.userId, new Date(Date.now() - 1));
 		await t.send('/start old');
 		expect(t.mem.links.size).toBe(0);
-		expect(t.tg.lastText()).toContain('Ссылка устарела');
+		expect(t.tg.lastText()).toContain('Посилання застаріло');
 	});
 
 	it('/start у привязанного — помощь и клавиатура', async () => {
 		await t.send('/start');
-		expect(t.tg.lastText()).toContain('С возвращением');
+		expect(t.tg.lastText()).toContain('З поверненням');
 		expect(t.tg.lastText()).toContain(HELP);
 		expect(keyboardRows(t.tg.lastSent())).toEqual(labels(MAIN_ROWS));
 	});
@@ -150,8 +150,8 @@ describe('запись одним сообщением', () => {
 
 		const card = t.tg.lastSent();
 		expect(card.text).toContain(`✅ <b>−${formatMoney(25000)}</b> · 🍏 Продукты`);
-		expect(card.text).toContain('💳 Карта · сегодня, 14:00');
-		expect(card.text).toContain(`В ноябре на «Продукты»: <b>${formatMoney(25000)}</b>`);
+		expect(card.text).toContain('💳 Карта · сьогодні, 14:00');
+		expect(card.text).toContain(`У листопаді на «Продукты»: <b>${formatMoney(25000)}</b>`);
 		expect(callbacks(card)).toEqual([
 			`cats:${tx.id}`,
 			`accs:${tx.id}`,
@@ -215,9 +215,9 @@ describe('запись одним сообщением', () => {
 		});
 		await t.send('250 продукты');
 		const text = t.tg.lastText();
-		expect(text).toContain(`<b>${formatMoney(115000)}</b> из ${formatMoney(100000)}`);
+		expect(text).toContain(`<b>${formatMoney(115000)}</b> з ${formatMoney(100000)}`);
 		expect(text).toContain('▰▰▰▰▰▰▰▰▰▰ 115%');
-		expect(text).toContain(`⚠️ Лимит превышен на ${formatMoney(15000)}`);
+		expect(text).toContain(`⚠️ Ліміт перевищено на ${formatMoney(15000)}`);
 	});
 
 	it('«+30000 зарплата» — доход', async () => {
@@ -228,7 +228,7 @@ describe('запись одним сообщением', () => {
 			categoryId: t.cat('Зарплата').id
 		});
 		expect(t.tg.lastText()).toContain(`<b>+${formatMoney(3000000)}</b> · 💼 Зарплата`);
-		expect(t.tg.lastText()).not.toContain('В ноябре');
+		expect(t.tg.lastText()).not.toContain('У листопаді');
 	});
 
 	it('«зарплата 30000» без плюса — всё равно доход', async () => {
@@ -241,7 +241,7 @@ describe('запись одним сообщением', () => {
 		const tx = t.lastTx();
 		expect(tx.occurredAt.toISOString()).toBe('2026-11-02T12:00:00.000Z');
 		expect(tx).toMatchObject({ amount: 18000, categoryId: t.cat('Транспорт').id, note: 'такси' });
-		expect(t.tg.lastText()).toContain('вчера, 14:00');
+		expect(t.tg.lastText()).toContain('вчора, 14:00');
 	});
 
 	it('время берётся из сообщения: отправленное, пока бот был выключен, — не «сейчас»', async () => {
@@ -265,6 +265,22 @@ describe('запись одним сообщением', () => {
 		expect(t.lastTx()).toMatchObject({ amount: 25000, note: 'кофе' });
 	});
 
+	// примеры из подсказок бота — по-украински — и те же по-русски
+	it.each([
+		['250 продукти', 'Продукты', 'Карта', 0],
+		['кава 65', 'Кафе и рестораны', 'Карта', 0],
+		['вчора таксі 180', 'Транспорт', 'Карта', 1],
+		['250 обід готівка', 'Кафе и рестораны', 'Наличные', 0],
+		['250 кава картка', 'Кафе и рестораны', 'Карта', 0],
+		['250 продукты', 'Продукты', 'Карта', 0],
+		['позавчера обед 300 нал', 'Кафе и рестораны', 'Наличные', 2]
+	])('«%s» → %s, счёт %s', async (text, category, account, daysAgo) => {
+		await t.send(text);
+		const tx = t.lastTx();
+		expect(tx).toMatchObject({ categoryId: t.cat(category).id, accountId: t.acc(account).id });
+		expect(tx.occurredAt.getTime()).toBe(NOW.getTime() - daysAgo * 86_400_000);
+	});
+
 	it('только сумма — без категории, категории кнопками сразу под записью', async () => {
 		await t.send('250');
 		const tx = t.lastTx();
@@ -272,8 +288,8 @@ describe('запись одним сообщением', () => {
 
 		const card = t.tg.lastSent();
 		expect(card.text).toContain('❓ <b>−');
-		expect(card.text).toContain('без категории');
-		expect(card.text).toContain('👇 Выбери категорию');
+		expect(card.text).toContain('без категорії');
+		expect(card.text).toContain('👇 Обери категорію');
 		const expense = t.mem.categories.filter((c) => c.userId === t.userId && c.kind === 'EXPENSE');
 		expect(callbacks(card)).toEqual([
 			...expense.map((c) => `sc:${tx.id}:${c.id}`),
@@ -285,7 +301,7 @@ describe('запись одним сообщением', () => {
 	it('незнакомое слово — обещает запомнить его', async () => {
 		await t.send('250 чебуреки');
 		expect(t.lastTx().categoryId).toBeNull();
-		expect(t.tg.lastText()).toContain('запомню, что «чебуреки» значит она');
+		expect(t.tg.lastText()).toContain("і я запам'ятаю слово «чебуреки»");
 	});
 
 	it('«сегодня 250 кофе» — запись, а не отчёт за сегодня', async () => {
@@ -307,24 +323,24 @@ describe('запись одним сообщением', () => {
 	it('нет ни одного счёта — просит создать', async () => {
 		for (const a of t.mem.accounts) a.archived = true;
 		await t.send('250 кофе');
-		expect(t.tg.lastText()).toContain('Нет ни одного активного счёта');
+		expect(t.tg.lastText()).toContain('Немає жодного активного рахунку');
 		expect(t.mem.txs).toHaveLength(0);
 	});
 });
 
 // ── Ввод кнопками ───────────────────────────────────────────────────────
 
-describe('ввод кнопками «− Расход» / «+ Доход»', () => {
-	it('«− Расход» — категории расходов кнопками', async () => {
-		await t.send('− Расход');
+describe('ввод кнопками «− Витрата» / «+ Дохід»', () => {
+	it('«− Витрата» — категории расходов кнопками', async () => {
+		await t.send('− Витрата');
 		const msg = t.tg.lastSent();
-		expect(msg.text).toContain('<b>Расход</b>');
+		expect(msg.text).toContain('<b>Витрата</b>');
 		const expense = t.mem.categories.filter((c) => c.userId === t.userId && c.kind === 'EXPENSE');
 		expect(callbacks(msg)).toEqual([...expense.map((c) => `pick:${c.id}`), 'unpick']);
 	});
 
-	it('«+ Доход» — категории доходов', async () => {
-		await t.send('+ Доход');
+	it('«+ Дохід» — категории доходов', async () => {
+		await t.send('+ Дохід');
 		const income = t.mem.categories.filter((c) => c.userId === t.userId && c.kind === 'INCOME');
 		expect(callbacks(t.tg.lastSent())).toEqual([...income.map((c) => `pick:${c.id}`), 'unpick']);
 	});
@@ -333,7 +349,7 @@ describe('ввод кнопками «− Расход» / «+ Доход»', ()
 		const cafe = t.cat('Кафе и рестораны');
 		await t.tap(`pick:${cafe.id}`);
 		expect(link().pendingCategoryId).toBe(cafe.id);
-		expect(t.tg.lastEdit().text).toContain('сколько?');
+		expect(t.tg.lastEdit().text).toContain('скільки?');
 		expect(callbacks(t.tg.lastEdit())).toEqual(['ask:E', 'unpick']);
 
 		await t.send('320 такси');
@@ -364,13 +380,13 @@ describe('ввод кнопками «− Расход» / «+ Доход»', ()
 
 	it('ушёл в другой раздел — выбор категории сброшен', async () => {
 		await t.tap(`pick:${t.cat('Продукты').id}`);
-		await t.send('📊 Сегодня');
+		await t.send('📊 Сьогодні');
 		expect(link().pendingCategoryId).toBeNull();
 	});
 
 	it('удалённая категория — просим выбрать заново', async () => {
 		await t.tap('pick:c000000000000000000000000');
-		expect(t.tg.lastAnswer().text).toContain('Категория не найдена');
+		expect(t.tg.lastAnswer().text).toContain('Категорію не знайдено');
 	});
 });
 
@@ -389,7 +405,7 @@ describe('кнопки под записью', () => {
 
 		expect(tx.categoryId).toBe(cafe.id);
 		expect(cafe.keywords).toContain('чебуреки');
-		expect(t.tg.lastAnswer().text).toBe('Запомнил: «чебуреки» → Кафе и рестораны');
+		expect(t.tg.lastAnswer().text).toBe("Запам'ятав: «чебуреки» → Кафе и рестораны");
 		expect(t.tg.lastEdit().text).toContain('🍔 Кафе и рестораны');
 		expect(callbacks(t.tg.lastEdit())[0]).toBe(`cats:${tx.id}`);
 
@@ -419,7 +435,7 @@ describe('кнопки под записью', () => {
 		const tx = await recorded('250 продукты');
 		await t.tap(`cats:${tx.id}`);
 		const edit = t.tg.lastEdit();
-		expect(edit.text).toContain('Выбери новую категорию');
+		expect(edit.text).toContain('Обери нову категорію');
 		const current = buttons(edit).find((b) => b.callback_data === `sc:${tx.id}:${tx.categoryId}`);
 		expect(current?.style).toBe('primary');
 		expect(callbacks(edit)).toContain(`v:${tx.id}`);
@@ -437,7 +453,7 @@ describe('кнопки под записью', () => {
 		const tx = await recorded('250');
 		await t.tap(`tt:${tx.id}`);
 		expect(tx).toMatchObject({ type: 'INCOME', categoryId: null });
-		expect(t.tg.lastAnswer().text).toBe('Теперь это доход');
+		expect(t.tg.lastAnswer().text).toBe('Тепер це дохід');
 		const income = t.mem.categories.filter((c) => c.userId === t.userId && c.kind === 'INCOME');
 		expect(callbacks(t.tg.lastEdit())).toEqual([
 			...income.map((c) => `sc:${tx.id}:${c.id}`),
@@ -467,18 +483,18 @@ describe('кнопки под записью', () => {
 		const tx = await recorded('250 продукты');
 		await t.tap(`back:${tx.id}`);
 		expect(tx.occurredAt.toISOString()).toBe('2026-11-02T12:00:00.000Z');
-		expect(t.tg.lastEdit().text).toContain('вчера, 14:00');
+		expect(t.tg.lastEdit().text).toContain('вчора, 14:00');
 	});
 
 	it('«✕ Удалить» — удаляет; повторное нажатие — «уже удалено»', async () => {
 		const tx = await recorded('250 продукты');
 		await t.tap(`del:${tx.id}`);
 		expect(t.mem.txs).toHaveLength(0);
-		expect(t.tg.lastEdit().text).toContain(`❌ Удалено: <s>−${formatMoney(25000)}</s>`);
+		expect(t.tg.lastEdit().text).toContain(`❌ Видалено: <s>−${formatMoney(25000)}</s>`);
 		expect(t.tg.lastEdit().reply_markup).toBeUndefined();
 
 		await t.tap(`del:${tx.id}`);
-		expect(t.tg.lastAnswer().text).toBe('Уже удалено');
+		expect(t.tg.lastAnswer().text).toBe('Уже видалено');
 	});
 
 	it('перевод: только сдвиг и удаление', async () => {
@@ -489,7 +505,7 @@ describe('кнопки под записью', () => {
 			toAccountId: t.acc('Наличные').id
 		});
 		await t.tap(`v:${tr.id}`);
-		expect(t.tg.lastEdit().text).toContain('🔄 Перевод → Наличные');
+		expect(t.tg.lastEdit().text).toContain('🔄 Переказ → Наличные');
 		expect(callbacks(t.tg.lastEdit())).toEqual([`back:${tr.id}`, `del:${tr.id}`]);
 	});
 
@@ -511,7 +527,7 @@ describe('кнопки под записью', () => {
 
 	it('устаревшая кнопка — честный ответ, а не вечная загрузка', async () => {
 		await t.tap('something-old');
-		expect(t.tg.lastAnswer().text).toContain('Кнопка устарела');
+		expect(t.tg.lastAnswer().text).toContain('Кнопка застаріла');
 	});
 });
 
@@ -526,7 +542,7 @@ describe('чужие данные недоступны', () => {
 		const { tx } = stranger();
 		await t.tap(`del:${tx.id}`);
 		expect(t.mem.txs).toContainEqual(tx);
-		expect(t.tg.lastAnswer().text).toBe('Уже удалено');
+		expect(t.tg.lastAnswer().text).toBe('Уже видалено');
 
 		await t.tap(`v:${tx.id}`);
 		await t.tap(`sc:${tx.id}:${t.cat('Продукты').id}`);
@@ -553,14 +569,14 @@ describe('чужие данные недоступны', () => {
 	it('чужой счёт нельзя сделать основным', async () => {
 		const { other } = stranger();
 		await t.tap(`da:${t.mem.account(other, 'Наличные').id}`);
-		expect(t.tg.lastAnswer().text).toBe('Счёт не найден');
+		expect(t.tg.lastAnswer().text).toBe('Рахунок не знайдено');
 		expect(t.acc('Карта').isDefault).toBe(true);
 	});
 });
 
 // ── Отчёты ──────────────────────────────────────────────────────────────
 
-describe('📊 Сегодня', () => {
+describe('📊 Сьогодні', () => {
 	it('операции за день и итоги, вчерашних нет', async () => {
 		t.mem.addTx(t.userId, {
 			amount: 25000,
@@ -576,42 +592,42 @@ describe('📊 Сегодня', () => {
 		});
 		t.mem.addTx(t.userId, { amount: 999900, occurredAt: at('2026-11-02T10:00:00Z') });
 
-		await t.send('📊 Сегодня');
+		await t.send('📊 Сьогодні');
 		const msg = t.tg.lastSent();
-		expect(msg.text).toContain('📊 <b>Сегодня, 3 ноября</b>');
+		expect(msg.text).toContain('📊 <b>Сьогодні, 3 листопада</b>');
 		expect(msg.text).toContain(`09:12 · 🍏 Продукты — <b>−${formatMoney(25000)}</b> · хлеб`);
 		expect(msg.text).toContain(`12:00 · 💼 Зарплата — <b>+${formatMoney(3000000)}</b>`);
 		expect(msg.text).not.toContain(formatMoney(999900));
-		expect(msg.text).toContain(`🔴 Расходы: <b>${formatMoney(25000)}</b>`);
-		expect(msg.text).toContain(`🟢 Доходы: <b>${formatMoney(3000000)}</b>`);
-		expect(buttons(msg)).toEqual([{ text: '‹ 2 ноя', callback_data: 'd:2026-11-02' }]);
+		expect(msg.text).toContain(`🔴 Витрати: <b>${formatMoney(25000)}</b>`);
+		expect(msg.text).toContain(`🟢 Доходи: <b>${formatMoney(3000000)}</b>`);
+		expect(buttons(msg)).toEqual([{ text: '‹ 2 лист', callback_data: 'd:2026-11-02' }]);
 	});
 
 	it('пустой день — подсказка, как записать', async () => {
 		await t.send('/today');
-		expect(t.tg.lastText()).toContain('Операций пока нет');
+		expect(t.tg.lastText()).toContain('Операцій поки немає');
 	});
 
 	it('листаем на вчера и обратно на сегодня', async () => {
 		await t.tap('d:2026-11-02');
 		const edit = t.tg.lastEdit();
-		expect(edit.text).toContain('Вчера, 2 ноября');
+		expect(edit.text).toContain('Вчора, 2 листопада');
 		expect(buttons(edit)).toEqual([
-			{ text: '‹ 1 ноя', callback_data: 'd:2026-11-01' },
-			{ text: 'Сегодня ›', callback_data: 'd:2026-11-03' }
+			{ text: '‹ 1 лист', callback_data: 'd:2026-11-01' },
+			{ text: 'Сьогодні ›', callback_data: 'd:2026-11-03' }
 		]);
 		await t.tap('d:2026-11-01');
-		expect(t.tg.lastEdit().text).toContain('Воскресенье, 1 ноября');
+		expect(t.tg.lastEdit().text).toContain('Неділя, 1 листопада');
 	});
 
 	it('завтрашний день не открывается', async () => {
 		await t.tap('d:2026-11-04');
-		expect(t.tg.lastAnswer().text).toBe('Этот день ещё не наступил');
+		expect(t.tg.lastAnswer().text).toBe('Цей день ще не настав');
 		expect(t.tg.edits()).toEqual([]);
 	});
 });
 
-describe('📅 Месяц', () => {
+describe('📅 Місяць', () => {
 	beforeEach(() => {
 		const groceries = t.cat('Продукты');
 		groceries.monthlyBudget = 200000;
@@ -645,29 +661,29 @@ describe('📅 Месяц', () => {
 	});
 
 	it('итоги, категории, лимиты и сравнение с тем же периодом', async () => {
-		await t.send('📅 Месяц');
+		await t.send('📅 Місяць');
 		const msg = t.tg.lastSent();
 		const text = msg.text as string;
-		expect(text).toContain('📅 <b>Ноябрь 2026</b> · 1–3 число');
-		expect(text).toContain(`🟢 Доходы: <b>${formatMoney(3000000)}</b>`);
-		expect(text).toContain(`🔴 Расходы: <b>${formatMoney(400000)}</b>`);
-		expect(text).toContain(`💰 Итог: <b>+${formatMoney(2600000)}</b>`);
+		expect(text).toContain('📅 <b>Листопад 2026</b> · 1–3 листопада');
+		expect(text).toContain(`🟢 Доходи: <b>${formatMoney(3000000)}</b>`);
+		expect(text).toContain(`🔴 Витрати: <b>${formatMoney(400000)}</b>`);
+		expect(text).toContain(`💰 Підсумок: <b>+${formatMoney(2600000)}</b>`);
 		expect(text.indexOf('🍏 Продукты')).toBeLessThan(text.indexOf('🍔 Кафе'));
 		expect(text).toContain(`🍏 Продукты — ${formatMoney(300000)} · 75%`);
-		expect(text).toContain(`🍏 Продукты: ${formatMoney(300000)} из ${formatMoney(200000)}`);
-		expect(text).toContain(`ушло ${formatMoney(200000)} — сейчас на 100% больше`);
-		expect(buttons(msg)).toEqual([{ text: '‹ Октябрь', callback_data: 'm:2026-10' }]);
+		expect(text).toContain(`🍏 Продукты: ${formatMoney(300000)} з ${formatMoney(200000)}`);
+		expect(text).toContain(`пішло ${formatMoney(200000)} — зараз на 100% більше`);
+		expect(buttons(msg)).toEqual([{ text: '‹ Жовтень', callback_data: 'm:2026-10' }]);
 	});
 
 	it('прошлый месяц кнопкой — целиком и со стрелкой вперёд', async () => {
 		await t.tap('m:2026-10');
 		const edit = t.tg.lastEdit();
-		expect(edit.text).toContain('📅 <b>Октябрь 2026</b>');
-		expect(edit.text).not.toContain('число');
-		expect(edit.text).toContain(`🔴 Расходы: <b>${formatMoney(700000)}</b>`);
+		expect(edit.text).toContain('📅 <b>Жовтень 2026</b>');
+		expect(edit.text).not.toContain(' · 1–');
+		expect(edit.text).toContain(`🔴 Витрати: <b>${formatMoney(700000)}</b>`);
 		expect(buttons(edit)).toEqual([
-			{ text: '‹ Сентябрь', callback_data: 'm:2026-09' },
-			{ text: 'Ноябрь ›', callback_data: 'm:2026-11' }
+			{ text: '‹ Вересень', callback_data: 'm:2026-09' },
+			{ text: 'Листопад ›', callback_data: 'm:2026-11' }
 		]);
 	});
 
@@ -679,11 +695,11 @@ describe('📅 Месяц', () => {
 
 	it('будущий месяц не открывается', async () => {
 		await t.tap('m:2026-12');
-		expect(t.tg.lastAnswer().text).toBe('Этот месяц ещё не наступил');
+		expect(t.tg.lastAnswer().text).toBe('Цей місяць ще не настав');
 	});
 });
 
-describe('💳 Счета', () => {
+describe('💳 Рахунки', () => {
 	it('остатки с учётом переводов, всего, основной счёт отмечен', async () => {
 		const card = t.acc('Карта');
 		const cash = t.acc('Наличные');
@@ -698,11 +714,11 @@ describe('💳 Счета', () => {
 			toAccountId: cash.id
 		});
 
-		await t.send('💳 Счета');
+		await t.send('💳 Рахунки');
 		const msg = t.tg.lastSent();
 		expect(msg.text).toContain(`💳 Карта — <b>${formatMoney(45000)}</b>`);
 		expect(msg.text).toContain(`💵 Наличные — <b>${formatMoney(80000)}</b>`);
-		expect(msg.text).toContain(`💰 Всего: <b>${formatMoney(125000)}</b>`);
+		expect(msg.text).toContain(`💰 Усього: <b>${formatMoney(125000)}</b>`);
 		expect(buttons(msg)).toEqual([
 			{ text: '✓ 💳 Карта', callback_data: `da:${card.id}`, style: 'primary' },
 			{ text: '💵 Наличные', callback_data: `da:${cash.id}` }
@@ -714,8 +730,8 @@ describe('💳 Счета', () => {
 		await t.tap(`da:${cash.id}`);
 		expect(cash.isDefault).toBe(true);
 		expect(t.acc('Карта').isDefault).toBe(false);
-		expect(t.tg.lastAnswer().text).toBe('Теперь записываю на «Наличные»');
-		expect(t.tg.lastEdit().text).toContain('Записи из чата идут на «Наличные»');
+		expect(t.tg.lastAnswer().text).toBe('Тепер записую на «Наличные»');
+		expect(t.tg.lastEdit().text).toContain('Записи з чату йдуть на «Наличные»');
 
 		await t.send('250 кофе');
 		expect(t.lastTx().accountId).toBe(cash.id);
@@ -728,7 +744,7 @@ describe('💳 Счета', () => {
 	});
 });
 
-describe('🧾 История и ↩️ Отменить', () => {
+describe('🧾 Історія і ↩️ Скасувати', () => {
 	it('10 последних, листание страниц', async () => {
 		for (let i = 0; i < 12; i++)
 			t.mem.addTx(t.userId, {
@@ -738,19 +754,19 @@ describe('🧾 История и ↩️ Отменить', () => {
 
 		await t.send('/last');
 		const msg = t.tg.lastSent();
-		expect(msg.text).toContain('🧾 <b>Последние операции</b>');
+		expect(msg.text).toContain('🧾 <b>Останні операції</b>');
 		expect((msg.text as string).split('\n').filter((l) => l.includes(' — '))).toHaveLength(10);
-		expect(buttons(msg)).toEqual([{ text: 'Старее ›', callback_data: 'h:10' }]);
+		expect(buttons(msg)).toEqual([{ text: 'Старіші ›', callback_data: 'h:10' }]);
 
 		await t.tap('h:10');
 		const edit = t.tg.lastEdit();
-		expect(edit.text).toContain('Операции 11–12');
-		expect(buttons(edit)).toEqual([{ text: '‹ Новее', callback_data: 'h:0' }]);
+		expect(edit.text).toContain('Операції 11–12');
+		expect(buttons(edit)).toEqual([{ text: '‹ Новіші', callback_data: 'h:0' }]);
 	});
 
 	it('пустая история', async () => {
-		await t.send('🧾 История');
-		expect(t.tg.lastText()).toContain('Операций пока нет');
+		await t.send('🧾 Історія');
+		expect(t.tg.lastText()).toContain('Операцій поки немає');
 	});
 
 	it('«↩️ Отменить» — спрашивает про последнюю запись, удаляет по кнопке', async () => {
@@ -758,13 +774,13 @@ describe('🧾 История и ↩️ Отменить', () => {
 		await t.send('250 продукты');
 		const tx = t.lastTx();
 
-		await t.send('↩️ Отменить');
+		await t.send('↩️ Скасувати');
 		const msg = t.tg.lastSent();
-		expect(msg.text).toContain('Удалить последнюю запись?');
+		expect(msg.text).toContain('Видалити останній запис?');
 		expect(msg.text).toContain('🍏 Продукты');
 		expect(buttons(msg)).toEqual([
-			{ text: '✕ Да, удалить', callback_data: `del:${tx.id}`, style: 'danger' },
-			{ text: 'Оставить', callback_data: `v:${tx.id}` }
+			{ text: '✕ Так, видалити', callback_data: `del:${tx.id}`, style: 'danger' },
+			{ text: 'Залишити', callback_data: `v:${tx.id}` }
 		]);
 
 		await t.tap(`del:${tx.id}`);
@@ -774,18 +790,18 @@ describe('🧾 История и ↩️ Отменить', () => {
 
 	it('отменять нечего', async () => {
 		await t.send('/undo');
-		expect(t.tg.lastText()).toContain('Удалять нечего');
+		expect(t.tg.lastText()).toContain('Видаляти нічого');
 	});
 });
 
 // ── Клавиатура и команды ────────────────────────────────────────────────
 
 describe('клавиатура внизу и команды', () => {
-	it('«📋 Команды» — экран со всеми командами; «‹ Назад» — главный', async () => {
-		await t.send('📋 Команды');
+	it('«📋 Команди» — экран со всеми командами; «‹ Назад» — главный', async () => {
+		await t.send('📋 Команди');
 		const msg = t.tg.lastSent();
 		expect(keyboardRows(msg)).toEqual(labels(COMMAND_ROWS));
-		for (const { command } of COMMANDS) expect(msg.text).toContain(`/${command} — `);
+		for (const id of COMMAND_ORDER) expect(msg.text).toContain(`/${ACTIONS[id].command} — `);
 
 		await t.send('‹ Назад');
 		expect(keyboardRows(t.tg.lastSent())).toEqual(labels(MAIN_ROWS));
@@ -803,8 +819,8 @@ describe('клавиатура внизу и команды', () => {
 		expect(t.mem.txs).toHaveLength(0);
 	});
 
-	it('каждая команда из меню Telegram работает, в том числе с именем бота', async () => {
-		for (const { command } of COMMANDS) {
+	it('каждая команда работает, в том числе с именем бота', async () => {
+		for (const { command } of COMMAND_ORDER.map((id) => ACTIONS[id])) {
 			for (const text of [`/${command}`, `/${command}@Monio1_bot`]) {
 				t.tg.reset();
 				await t.send(text);
@@ -813,19 +829,37 @@ describe('клавиатура внизу и команды', () => {
 		}
 	});
 
-	it('слово без значка тоже работает: «месяц», «баланс»', async () => {
-		await t.send('месяц');
-		expect(t.tg.lastText()).toContain('📅 <b>Ноябрь 2026</b>');
-		await t.send('баланс');
-		expect(t.tg.lastText()).toContain('💳 <b>Счета</b>');
+	it.each([
+		['місяць', '📅 <b>Листопад 2026</b>'],
+		['месяц', '📅 <b>Листопад 2026</b>'],
+		['рахунки', '💳 <b>Рахунки</b>'],
+		['счета', '💳 <b>Рахунки</b>'],
+		['сьогодні', '📊 <b>Сьогодні, 3 листопада</b>'],
+		['сегодня', '📊 <b>Сьогодні, 3 листопада</b>'],
+		['історія', 'Операцій поки немає'],
+		['история', 'Операцій поки немає'],
+		['команди', '📋 <b>Усі команди</b>'],
+		['команды', '📋 <b>Усі команди</b>']
+	])('слово без значка — по-украински и по-русски: «%s»', async (word, reply) => {
+		await t.send(word);
+		expect(t.tg.lastText()).toContain(reply);
+		expect(t.mem.txs).toHaveLength(0);
 	});
 
-	it('кнопка старой клавиатуры работает и меняет клавиатуру на новую', async () => {
-		await t.send('💰 Баланс');
-		const [refresh, report] = t.tg.sent();
-		expect(refresh.text).toContain('Обновил кнопки');
-		expect(keyboardRows(refresh)).toEqual(labels(MAIN_ROWS));
-		expect(report.text).toContain('💳 <b>Счета</b>');
+	it.each(['💰 Баланс', '💳 Счета'])(
+		'кнопка старой клавиатуры «%s» работает и меняет клавиатуру на новую',
+		async (label) => {
+			await t.send(label);
+			const [refresh, report] = t.tg.sent();
+			expect(refresh.text).toContain('Оновив кнопки');
+			expect(keyboardRows(refresh)).toEqual(labels(MAIN_ROWS));
+			expect(report.text).toContain('💳 <b>Рахунки</b>');
+		}
+	);
+
+	it('кнопка новой клавиатуры клавиатуру не пересылает', async () => {
+		await t.send('💳 Рахунки');
+		expect(t.tg.sent()).toHaveLength(1);
 	});
 
 	it('/help — помощь и главная клавиатура', async () => {
@@ -835,7 +869,7 @@ describe('клавиатура внизу и команды', () => {
 	});
 
 	it('/categories — категории и слова-подсказки', async () => {
-		await t.send('🏷 Категории');
+		await t.send('🏷 Категорії');
 		expect(t.tg.lastText()).toContain('🍏 <b>Продукты</b> — продукт, еда');
 	});
 

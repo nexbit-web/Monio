@@ -6,6 +6,7 @@ import {
 	MAIN_TEXT,
 	NOT_LINKED,
 	NO_AMOUNT,
+	T,
 	askAmountText,
 	askCategoryText,
 	balanceText,
@@ -23,7 +24,7 @@ import {
 	signed,
 	type MonthData
 } from './render.ts';
-import { COMMANDS } from './ui.ts';
+import { ACTIONS, COMMAND_ORDER } from './ui.ts';
 import { htmlProblems } from './testing/harness.ts';
 import type { Account, Category, Tx } from './store.ts';
 
@@ -107,7 +108,7 @@ describe('карточка операции', () => {
 		expect(text).toBe(
 			[
 				`✅ <b>−${formatMoney(25000)}</b> · 🍏 Продукты`,
-				'💳 Карта · сегодня, 14:00',
+				'💳 Карта · сьогодні, 14:00',
 				'📝 хлеб &lt;свежий&gt;'
 			].join('\n')
 		);
@@ -119,10 +120,10 @@ describe('карточка операции', () => {
 			monthKey: '2026-11'
 		});
 		expect(text).toContain(
-			`📊 В ноябре на «Продукты»: <b>${formatMoney(120000)}</b> из ${formatMoney(100000)}`
+			`📊 У листопаді на «Продукты»: <b>${formatMoney(120000)}</b> з ${formatMoney(100000)}`
 		);
 		expect(text).toContain('▰▰▰▰▰▰▰▰▰▰ 120%');
-		expect(text).toContain(`⚠️ Лимит превышен на ${formatMoney(20000)}`);
+		expect(text).toContain(`⚠️ Ліміт перевищено на ${formatMoney(20000)}`);
 	});
 
 	it('без лимита — только сумма за месяц, без полоски', () => {
@@ -135,19 +136,19 @@ describe('карточка операции', () => {
 		const text = cardText(tx({ category: null, note: 'чебуреки' }), TZ, {
 			ask: { hint: 'чебуреки', change: false }
 		});
-		expect(text.split('\n')[0]).toBe(`❓ <b>−${formatMoney(25000)}</b> · <i>без категории</i>`);
-		expect(text).toContain('👇 Выбери категорию — запомню, что «чебуреки» значит она');
+		expect(text.split('\n')[0]).toBe(`❓ <b>−${formatMoney(25000)}</b> · <i>без категорії</i>`);
+		expect(text).toContain("👇 Обери категорію — і я запам'ятаю слово «чебуреки»");
 	});
 
 	it('смена категории — другая подсказка', () => {
 		expect(cardText(tx(), TZ, { ask: { hint: null, change: true } })).toContain(
-			'👇 Выбери новую категорию'
+			'👇 Обери нову категорію'
 		);
 	});
 
 	it('перевод', () => {
 		const text = cardText(tx({ type: 'TRANSFER', category: null, toAccount: cash }), TZ);
-		expect(text.split('\n')[0]).toBe(`✅ <b>${formatMoney(25000)}</b> · 🔄 Перевод → Наличные`);
+		expect(text.split('\n')[0]).toBe(`✅ <b>${formatMoney(25000)}</b> · 🔄 Переказ → Наличные`);
 	});
 
 	it('доход и старое эмодзи счёта из базы', () => {
@@ -158,26 +159,27 @@ describe('карточка операции', () => {
 
 	it('удалено — зачёркнутая сумма', () => {
 		expect(deletedText(tx({ note: 'хлеб' }))).toBe(
-			`❌ Удалено: <s>−${formatMoney(25000)}</s> · 🍏 Продукты · хлеб`
+			`❌ Видалено: <s>−${formatMoney(25000)}</s> · 🍏 Продукты · хлеб`
 		);
 	});
 });
 
 describe('ввод кнопками', () => {
 	it('вопросы про категорию и сумму', () => {
-		expect(askCategoryText('EXPENSE')).toContain('<b>Расход</b>');
-		expect(askCategoryText('INCOME')).toContain('<b>Доход</b>');
-		expect(askAmountText(groceries)).toContain('🍏 Продукты — <b>сколько?</b>');
+		expect(askCategoryText('EXPENSE')).toContain('<b>Витрата</b> — на що?');
+		expect(askCategoryText('INCOME')).toContain('<b>Дохід</b> — звідки?');
+		expect(askAmountText(groceries)).toContain('🍏 Продукты — <b>скільки?</b>');
 		expect(askAmountText(salary)).toContain('30000 аванс');
 	});
 });
 
 describe('день', () => {
 	it.each([
-		['2026-11-03', 'Сегодня, 3 ноября'],
-		['2026-11-02', 'Вчера, 2 ноября'],
-		['2026-11-01', 'Воскресенье, 1 ноября'],
-		['2025-12-31', 'Среда, 31 декабря 2025']
+		['2026-11-03', 'Сьогодні, 3 листопада'],
+		['2026-11-02', 'Вчора, 2 листопада'],
+		['2026-11-01', 'Неділя, 1 листопада'],
+		['2026-10-30', "П'ятниця, 30 жовтня"],
+		['2025-12-31', 'Середа, 31 грудня 2025']
 	])('dayTitle(%s) = %s', (key, title) => {
 		expect(dayTitle(key, TZ)).toBe(title);
 	});
@@ -188,17 +190,17 @@ describe('день', () => {
 			tx({ type: 'INCOME', category: salary, amount: 3000000 })
 		]);
 		expect(text).toContain(`14:00 · 🍏 Продукты — <b>−${formatMoney(25000)}</b> · хлеб`);
-		expect(text).toContain(`🔴 Расходы: <b>${formatMoney(25000)}</b>`);
-		expect(text).toContain(`🟢 Доходы: <b>${formatMoney(3000000)}</b>`);
+		expect(text).toContain(`🔴 Витрати: <b>${formatMoney(25000)}</b>`);
+		expect(text).toContain(`🟢 Доходи: <b>${formatMoney(3000000)}</b>`);
 	});
 
 	it('без доходов строки доходов нет', () => {
-		expect(dayText('2026-11-03', TZ, [tx()])).not.toContain('Доходы');
+		expect(dayText('2026-11-03', TZ, [tx()])).not.toContain('Доходи');
 	});
 
 	it('пустой сегодняшний и пустой прошлый день — разные подсказки', () => {
-		expect(dayText('2026-11-03', TZ, [])).toContain('Операций пока нет');
-		expect(dayText('2026-11-01', TZ, [])).toContain('В этот день операций нет');
+		expect(dayText('2026-11-03', TZ, [])).toContain('Операцій поки немає');
+		expect(dayText('2026-11-01', TZ, [])).toContain('Цього дня операцій не було');
 	});
 });
 
@@ -217,21 +219,37 @@ describe('месяц', () => {
 	};
 
 	it('без категории — отдельной строкой', () => {
-		expect(monthText(base)).toContain(`❓ Без категории — ${formatMoney(100000)} · 25%`);
+		expect(monthText(base)).toContain(`❓ Без категорії — ${formatMoney(100000)} · 25%`);
+	});
+
+	it('текущий месяц — с периодом «1–3 листопада»', () => {
+		expect(monthText(base)).toContain('📅 <b>Листопад 2026</b> · 1–3 листопада\n');
 	});
 
 	it('не с чем сравнить — без строки сравнения', () => {
-		expect(monthText(base)).not.toContain('прошлого месяца');
+		expect(monthText(base)).not.toContain('пішло');
+	});
+
+	it('текущий месяц — сравнение с тем же периодом прошлого', () => {
+		expect(monthText({ ...base, prevExpense: 200000 })).toContain(
+			`За 1–3 жовтня пішло ${formatMoney(200000)} — зараз на 100% більше.`
+		);
+	});
+
+	it('прошлый месяц короче — период не выходит за его конец', () => {
+		const text = monthText({ ...base, key: '2026-03', day: 30, prevExpense: 200000 });
+		expect(text).toContain('📅 <b>Березень 2026</b> · 1–30 березня');
+		expect(text).toContain('За 1–28 лютого пішло');
 	});
 
 	it('прошлый месяц — сравнение с предыдущим целиком', () => {
 		const text = monthText({ ...base, key: '2026-10', current: false, prevExpense: 800000 });
-		expect(text).toContain('📅 <b>Октябрь 2026</b>\n');
-		expect(text).toContain(`В сентябре ушло ${formatMoney(800000)} — в октябре на 50% меньше.`);
+		expect(text).toContain('📅 <b>Жовтень 2026</b>\n');
+		expect(text).toContain(`У вересні пішло ${formatMoney(800000)} — у жовтні на 50% менше.`);
 	});
 
 	it('столько же, сколько в прошлом', () => {
-		expect(monthText({ ...base, prevExpense: 400000 })).toContain('ушло столько же');
+		expect(monthText({ ...base, prevExpense: 400000 })).toContain('пішло стільки ж');
 	});
 
 	it('больше 10 категорий — «…и ещё»', () => {
@@ -245,13 +263,13 @@ describe('месяц', () => {
 			byCategory: new Map(many.map((c, i) => [c.id, (i + 1) * 1000])),
 			categories: many
 		});
-		expect(text).toContain('…и ещё 3');
+		expect(text).toContain('…і ще 3');
 	});
 
 	it('пустой месяц', () => {
 		expect(
 			monthText({ ...base, totals: { income: 0, expense: 0 }, byCategory: new Map() })
-		).toContain('Операций за этот месяц нет');
+		).toContain('Операцій за цей місяць немає');
 	});
 });
 
@@ -259,23 +277,23 @@ describe('счета, история, категории, команды', () =>
 	it('один счёт — без подсказки про смену', () => {
 		const text = balanceText([card], new Map([['a', 100000]]));
 		expect(text).toContain(`💳 Карта — <b>${formatMoney(100000)}</b>`);
-		expect(text).not.toContain('сменить');
+		expect(text).not.toContain('змінити');
 	});
 
 	it('несколько — основной счёт и как записать разово на другой', () => {
 		const text = balanceText([card, cash], new Map());
-		expect(text).toContain('Записи из чата идут на «Карта»');
-		expect(text).toContain('<code>250 кофе нал</code>');
+		expect(text).toContain('Записи з чату йдуть на «Карта»');
+		expect(text).toContain('<code>250 кава готівка</code>');
 	});
 
 	it('нет счетов', () => {
-		expect(balanceText([], new Map())).toContain('Активных счетов нет');
+		expect(balanceText([], new Map())).toContain('Активних рахунків немає');
 	});
 
 	it('история: первая страница, следующая, пустая', () => {
-		expect(historyText([tx()], 0, TZ)).toContain('Последние операции');
-		expect(historyText([tx()], 10, TZ)).toContain('Операции 11–11');
-		expect(historyText([], 10, TZ)).toContain('Дальше операций нет');
+		expect(historyText([tx()], 0, TZ)).toContain('Останні операції');
+		expect(historyText([tx()], 10, TZ)).toContain('Операції 11–11');
+		expect(historyText([], 10, TZ)).toContain('Далі операцій немає');
 	});
 
 	it('категории со словами-подсказками', () => {
@@ -284,9 +302,37 @@ describe('счета, история, категории, команды', () =>
 		expect(text).toContain('💼 <b>Зарплата</b>');
 	});
 
-	it('«Все команды» — каждая команда с описанием', () => {
+	it('«Усі команди» — каждая команда с описанием', () => {
 		const text = commandsText();
-		for (const c of COMMANDS) expect(text).toContain(`/${c.command} — ${c.description}`);
+		for (const id of COMMAND_ORDER)
+			expect(text).toContain(`/${ACTIONS[id].command} — ${ACTIONS[id].description}`);
+	});
+
+	it('подсказки называют кнопки так, как они подписаны', () => {
+		expect(HELP).toContain(`«${ACTIONS.expense.label}» / «${ACTIONS.income.label}»`);
+		expect(NO_AMOUNT).toContain(`«${ACTIONS.commands.label}»`);
+	});
+});
+
+describe('тексты — по-украински', () => {
+	// ы, э, ъ, ё есть только в русском; названия из базы («Продукты») сюда не попадают
+	const russian = /[ыэъё]/i;
+	const all = {
+		HELP,
+		LINKED,
+		MAIN_TEXT,
+		NOT_LINKED,
+		NO_AMOUNT,
+		commands: commandsText(),
+		askExpense: askCategoryText('EXPENSE'),
+		askIncome: askCategoryText('INCOME'),
+		emptyDay: dayText('2026-11-01', TZ, []),
+		emptyHistory: historyText([], 0, TZ),
+		...Object.fromEntries(Object.entries(T).filter(([, v]) => typeof v === 'string'))
+	};
+
+	it.each(Object.entries(all))('%s', (_name, text) => {
+		expect(text).not.toMatch(russian);
 	});
 });
 

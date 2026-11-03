@@ -1,29 +1,32 @@
 /**
- * Профиль бота в Telegram: меню команд, кнопка «Меню» слева от поля ввода и
- * описания (их видно в пустом чате до /start и в профиле бота).
+ * Профиль бота в Telegram: описания (их видно в пустом чате до /start и в
+ * профиле бота) и кнопка «Меню» слева от поля ввода.
+ *
+ * Кнопки «Меню» нет: Telegram показывает её, пока у бота есть список команд.
+ * Поэтому список удаляем, а все команды — на экране «📋 Команди» клавиатуры.
+ * Сами команды (/today, /month…) по-прежнему работают, если их написать.
  *
  * syncProfile меняет только то, что отличается, — частые перезапуски не
  * упираются в лимиты Telegram на эти методы.
  */
 import type { Api } from 'grammy';
-import { COMMANDS } from './ui.ts';
 
 /** Видно в пустом чате до /start (до 512 символов). */
 export const DESCRIPTION = [
-	'Monio — учёт доходов и расходов прямо в чате.',
+	'Monio — облік доходів і витрат просто в чаті.',
 	'',
-	'Пиши как в заметках: «250 продукты», «кофе 65», «+30000 зарплата» — я сам разложу по категориям и посчитаю месяц.',
+	'Пиши як у нотатках: «250 продукти», «кава 65», «+30000 зарплата» — я сам розкладу по категоріях і порахую місяць. Можна українською або російською.',
 	'',
-	'Чтобы начать, привяжи аккаунт: Monio → Настройки → Telegram-бот.'
+	"Щоб почати, прив'яжи акаунт: Monio → Настройки → Telegram-бот."
 ].join('\n');
 
 /** В профиле бота и в превью ссылки (до 120 символов). */
-export const SHORT_DESCRIPTION = 'Учёт расходов и доходов: напиши «250 продукты» — и готово.';
+export const SHORT_DESCRIPTION = 'Облік витрат і доходів: напиши «250 продукти» — і готово.';
 
 type ProfileApi = Pick<
 	Api,
 	| 'getMyCommands'
-	| 'setMyCommands'
+	| 'deleteMyCommands'
 	| 'getMyDescription'
 	| 'setMyDescription'
 	| 'getMyShortDescription'
@@ -44,14 +47,15 @@ export async function syncProfile(api: ProfileApi): Promise<string[]> {
 	const changed: string[] = [];
 	const tasks: Promise<unknown>[] = [];
 
-	const sameCommands =
-		commands.length === COMMANDS.length &&
-		commands.every(
-			(c, i) => c.command === COMMANDS[i].command && c.description === COMMANDS[i].description
-		);
-	if (!sameCommands) {
-		changed.push('команды');
-		tasks.push(api.setMyCommands(COMMANDS));
+	if (commands.length > 0) {
+		changed.push('убран список команд');
+		tasks.push(api.deleteMyCommands());
+	}
+	// Без своей кнопки Telegram отвечает «commands» (или «default») и при пустом
+	// списке команд «Меню» не рисует. Мешает только кнопка мини-приложения.
+	if (menu.type === 'web_app') {
+		changed.push('убрана кнопка «Меню»');
+		tasks.push(api.setChatMenuButton({ menu_button: { type: 'default' } }));
 	}
 	if (description.description !== DESCRIPTION) {
 		changed.push('описание');
@@ -60,10 +64,6 @@ export async function syncProfile(api: ProfileApi): Promise<string[]> {
 	if (short.short_description !== SHORT_DESCRIPTION) {
 		changed.push('короткое описание');
 		tasks.push(api.setMyShortDescription(SHORT_DESCRIPTION));
-	}
-	if (menu.type !== 'commands') {
-		changed.push('кнопка «Меню»');
-		tasks.push(api.setChatMenuButton({ menu_button: { type: 'commands' } }));
 	}
 
 	await Promise.all(tasks);

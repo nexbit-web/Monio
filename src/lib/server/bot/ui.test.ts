@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	ACTIONS,
-	COMMANDS,
 	COMMAND_ORDER,
 	COMMAND_ROWS,
 	DIM_EMOJI,
@@ -11,6 +10,7 @@ import {
 	commandsKeyboard,
 	grid,
 	inline,
+	isOldLabel,
 	mainKeyboard,
 	matchButton,
 	type ActionId
@@ -19,24 +19,23 @@ import {
 const ids = Object.keys(ACTIONS) as ActionId[];
 const emoji = /\p{Extended_Pictographic}/u;
 
-describe('команды для меню Telegram', () => {
-	it('имена и описания по правилам Telegram', () => {
-		expect(COMMANDS.length).toBeLessThanOrEqual(100);
-		for (const { command, description } of COMMANDS) {
-			expect(command).toMatch(/^[a-z0-9_]{1,32}$/);
-			expect(description.length).toBeGreaterThan(0);
-			expect(description.length).toBeLessThanOrEqual(256);
+describe('команды', () => {
+	const names = ids.map((id) => ACTIONS[id].command);
+
+	it('имена по правилам Telegram, у каждой — описание', () => {
+		for (const id of ids) {
+			expect(ACTIONS[id].command).toMatch(/^[a-z0-9_]{1,32}$/);
+			expect(ACTIONS[id].description.length).toBeGreaterThan(0);
 		}
 	});
 
-	it('без повторов, и в меню есть каждое действие', () => {
-		const names = COMMANDS.map((c) => c.command);
+	it('без повторов, и в «Команди» есть каждое действие', () => {
 		expect(new Set(names).size).toBe(names.length);
 		expect([...COMMAND_ORDER].sort()).toEqual([...ids].sort());
 	});
 
 	it('/start не занят: он для привязки', () => {
-		expect(COMMANDS.map((c) => c.command)).not.toContain('start');
+		expect(names).not.toContain('start');
 	});
 });
 
@@ -56,8 +55,8 @@ describe('клавиатура внизу', () => {
 	it('расход — красная кнопка, доход — зелёная, назад — синяя', () => {
 		const first = mainKeyboard.keyboard[0];
 		expect(first).toEqual([
-			{ text: '− Расход', style: 'danger' },
-			{ text: '+ Доход', style: 'success' }
+			{ text: '− Витрата', style: 'danger' },
+			{ text: '+ Дохід', style: 'success' }
 		]);
 		expect(commandsKeyboard.keyboard.flat()).toContainEqual({ text: '‹ Назад', style: 'primary' });
 	});
@@ -97,6 +96,11 @@ describe('клавиатура внизу', () => {
 		const labels = ids.map((id) => ACTIONS[id].label);
 		expect(new Set(labels).size).toBe(labels.length);
 	});
+
+	it('надписи — по-украински', () => {
+		for (const id of ids) expect(ACTIONS[id].label, ACTIONS[id].label).not.toMatch(/[ыэъё]/i);
+		expect(INPUT_PLACEHOLDER).toBe('Сума й на що: 250 продукти');
+	});
 });
 
 describe('matchButton — какую кнопку нажали', () => {
@@ -105,30 +109,69 @@ describe('matchButton — какую кнопку нажали', () => {
 	});
 
 	it.each([
-		['➖ Расход', 'expense'],
-		['➕ Доход', 'income'],
-		['💰 Баланс', 'balance'],
-		['🕘 Последние', 'last'],
+		// украинские слова
+		['витрата', 'expense'],
+		['дохід', 'income'],
+		['сьогодні', 'today'],
+		['місяць', 'month'],
+		['рахунки', 'balance'],
+		['залишки', 'balance'],
+		['історія', 'last'],
+		['останні', 'last'],
+		['скасувати', 'undo'],
+		['категорії', 'categories'],
+		['допомога', 'help'],
+		['команди', 'commands'],
+		['ще', 'commands'],
+		['головне меню', 'main'],
+		// русские слова
+		['расход', 'expense'],
+		['доход', 'income'],
+		['  Сегодня  ', 'today'],
 		['месяц', 'month'],
 		['МЕСЯЦ', 'month'],
-		['  Сегодня  ', 'today'],
-		['сьогодні', 'today'],
 		['счета', 'balance'],
-		['меню', 'main'],
-		['назад', 'main'],
+		['баланс', 'balance'],
+		['история', 'last'],
+		['отменить', 'undo'],
+		['категории', 'categories'],
+		['помощь', 'help'],
+		['команды', 'commands'],
 		['ещё', 'commands'],
 		['еще', 'commands'],
-		['help', 'help']
+		['меню', 'main'],
+		['назад', 'main'],
+		['help', 'help'],
+		// кнопки прошлых клавиатур
+		['− Расход', 'expense'],
+		['➖ Расход', 'expense'],
+		['➕ Доход', 'income'],
+		['💳 Счета', 'balance'],
+		['💰 Баланс', 'balance'],
+		['🕘 Последние', 'last'],
+		['📋 Команды', 'commands']
 	] as const)('«%s» → %s', (text, id) => {
 		expect(matchButton(text)).toBe(id);
 	});
 
-	it.each(['сегодня 250 кофе', '250', 'кофе', 'привет', '', 'месяц '.repeat(10)])(
-		'«%s» — не кнопка',
-		(text) => {
-			expect(matchButton(text)).toBeNull();
-		}
-	);
+	it('старая клавиатура узнаётся, чтобы её заменить, — новая нет', () => {
+		for (const text of ['− Расход', '+ Доход', '📊 Сегодня', '💳 Счета', '📋 Команды', '➖ Расход'])
+			expect(isOldLabel(text), text).toBe(true);
+		for (const id of ids) expect(isOldLabel(ACTIONS[id].label), id).toBe(false);
+		expect(isOldLabel('месяц')).toBe(false);
+	});
+
+	it.each([
+		'сегодня 250 кофе',
+		'сьогодні 250 кава',
+		'250',
+		'кава',
+		'привіт',
+		'',
+		'месяц '.repeat(10)
+	])('«%s» — не кнопка', (text) => {
+		expect(matchButton(text)).toBeNull();
+	});
 });
 
 describe('кнопки под сообщениями', () => {

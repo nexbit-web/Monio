@@ -247,7 +247,6 @@ const WEEKDAYS = [
 	'пятница',
 	'суббота'
 ];
-const WEEKDAYS_SHORT = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
 
 /** «Ноябрь 2026» */
 export function monthTitle(key: string): string {
@@ -285,12 +284,6 @@ export function formatDay(date: Date, tz: string): string {
 	return `${p.day} ${MONTHS_GEN[p.month - 1]}${p.year !== nowYear ? ` ${p.year}` : ''}`;
 }
 
-/** «3 ноя» */
-export function formatDayShort(date: Date, tz: string): string {
-	const p = zonedParts(date, tz);
-	return `${p.day} ${MONTHS_SHORT[p.month - 1]}`;
-}
-
 export function formatTime(date: Date, tz: string): string {
 	const p = zonedParts(date, tz);
 	return `${pad(p.hour)}:${pad(p.minute)}`;
@@ -306,15 +299,4 @@ export function dayHeading(key: string, tz: string): string {
 	const nowYear = Number(today.slice(0, 4));
 	const name = WEEKDAYS[wd];
 	return `${name[0].toUpperCase()}${name.slice(1)}, ${d} ${MONTHS_GEN[m - 1]}${y !== nowYear ? ` ${y}` : ''}`;
-}
-
-/** «сегодня, 14:32» / «вчера, 09:10» / «3 ноя (пн), 18:00» */
-export function formatWhen(date: Date, tz: string): string {
-	const key = dayKeyOf(date, tz);
-	const today = dayKeyOf(new Date(), tz);
-	const time = formatTime(date, tz);
-	if (key === today) return `сегодня, ${time}`;
-	if (key === addDaysToKey(today, -1)) return `вчера, ${time}`;
-	const p = zonedParts(date, tz);
-	return `${formatDayShort(date, tz)} (${WEEKDAYS_SHORT[p.weekday]}), ${time}`;
 }

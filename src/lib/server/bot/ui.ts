@@ -1,10 +1,11 @@
 /**
- * Кнопки, команды и значки бота — в одном месте, чтобы меню Telegram,
- * клавиатура внизу чата и список «Все команды» не расходились.
+ * Кнопки, команды и значки бота — в одном месте, чтобы клавиатура внизу чата
+ * и список «📋 Команди» не расходились. Кнопки «Меню» слева от поля ввода нет:
+ * все команды — на экране «Команди» (см. profile.ts).
  *
  * Клавиатура внизу (открывается значком с четырьмя точками, сворачивается стрелкой «⌄») — главный пульт.
  * У неё два экрана с переходами между ними:
- *   главный  — самое частое: расход, доход, сегодня, месяц, счета, «Команды»;
+ *   главный  — самое частое: витрата, дохід, сьогодні, місяць, рахунки, «Команди»;
  *   команды  — все команды бота кнопками и «‹ Назад».
  *
  * Значки. В Telegram эмодзи рисуются одинаково на светлой и тёмной теме,
@@ -39,87 +40,100 @@ type Action = {
 	/** надпись на кнопке клавиатуры */
 	label: string;
 	style?: ButtonStyle;
-	/** команда в меню Telegram */
+	/** команда: /today и т.п. (латиница — так требует Telegram) */
 	command: string;
-	/** подпись команды в меню (до 256 символов) */
+	/** подпись команды в «📋 Команди» */
 	description: string;
-	/** старые надписи кнопок и слова, которые тоже понимаем */
+	/** слова, которые тоже понимаем, — по-русски и по-украински */
 	aliases?: string[];
+	/** надписи кнопок прошлых версий: нажали такую — пришлём новую клавиатуру */
+	old?: string[];
 };
 
+/** Интерфейс бота — на украинском, а понимает он и русский, и украинский. */
 export const ACTIONS: Record<ActionId, Action> = {
 	expense: {
-		label: '− Расход',
+		label: '− Витрата',
 		style: 'danger',
 		command: 'expense',
-		description: 'Записать расход — выбрать категорию',
-		aliases: ['➖ Расход', 'расходы', 'витрата', 'витрати']
+		description: 'Записати витрату — обрати категорію',
+		aliases: ['витрати', 'расход', 'расходы', 'трата'],
+		old: ['➖ Расход', '− Расход']
 	},
 	income: {
-		label: '+ Доход',
+		label: '+ Дохід',
 		style: 'success',
 		command: 'income',
-		description: 'Записать доход — выбрать категорию',
-		aliases: ['➕ Доход', 'доходы', 'дохід', 'доходи']
+		description: 'Записати дохід — обрати категорію',
+		aliases: ['доходи', 'доход', 'доходы'],
+		old: ['➕ Доход', '+ Доход']
 	},
 	today: {
-		label: '📊 Сегодня',
+		label: '📊 Сьогодні',
 		command: 'today',
-		description: 'Операции за день',
-		aliases: ['сьогодні', 'за сегодня']
+		description: 'Операції за день',
+		aliases: ['за сьогодні', 'сегодня', 'за сегодня'],
+		old: ['📊 Сегодня']
 	},
 	month: {
-		label: '📅 Месяц',
+		label: '📅 Місяць',
 		command: 'month',
-		description: 'Итоги месяца',
-		aliases: ['місяць', 'за месяц']
+		description: 'Підсумки місяця',
+		aliases: ['за місяць', 'месяц', 'за месяц'],
+		old: ['📅 Месяц']
 	},
 	balance: {
-		label: '💳 Счета',
+		label: '💳 Рахунки',
 		command: 'balance',
-		description: 'Остатки по счетам и счёт для записей',
-		aliases: ['💰 Баланс', 'баланс', 'рахунки', 'остатки']
+		description: 'Залишки на рахунках і рахунок для записів',
+		aliases: ['баланс', 'залишки', 'счета', 'остатки'],
+		old: ['💰 Баланс', '💳 Счета']
 	},
 	last: {
-		label: '🧾 История',
+		label: '🧾 Історія',
 		command: 'last',
-		description: 'Последние операции',
-		aliases: ['🕘 Последние', 'последние', 'історія']
+		description: 'Останні операції',
+		aliases: ['останні', 'история', 'последние'],
+		old: ['🕘 Последние', '🧾 История']
 	},
 	undo: {
-		label: '↩️ Отменить',
+		label: '↩️ Скасувати',
 		command: 'undo',
-		description: 'Удалить последнюю запись',
-		aliases: ['скасувати']
+		description: 'Видалити останній запис',
+		aliases: ['отменить', 'отмена'],
+		old: ['↩️ Отменить']
 	},
 	categories: {
-		label: '🏷 Категории',
+		label: '🏷 Категорії',
 		command: 'categories',
-		description: 'Категории и слова, по которым я их узнаю',
-		aliases: ['категорії']
+		description: 'Категорії та слова, за якими я їх упізнаю',
+		aliases: ['категории'],
+		old: ['🏷 Категории']
 	},
 	help: {
-		label: '❓ Помощь',
+		label: '❓ Допомога',
 		command: 'help',
-		description: 'Как пользоваться',
-		aliases: ['допомога', 'help']
+		description: 'Як користуватися',
+		aliases: ['помощь'],
+		old: ['❓ Помощь']
 	},
 	commands: {
-		label: '📋 Команды',
+		label: '📋 Команди',
 		command: 'commands',
-		description: 'Все команды кнопками',
-		aliases: ['все команды', 'команди', 'ещё']
+		description: 'Усі команди кнопками',
+		aliases: ['усі команди', 'всі команди', 'ще', 'команды', 'все команды', 'ещё'],
+		old: ['📋 Команды']
 	},
 	main: {
 		label: '‹ Назад',
 		style: 'primary',
 		command: 'menu',
-		description: 'Вернуть кнопки внизу чата',
-		aliases: ['меню', 'главное меню', 'головне меню']
+		description: 'Повернути кнопки внизу чату',
+		aliases: ['меню', 'головне меню', 'главное меню']
 	}
 };
 
-/** Порядок команд в меню Telegram и в «Все команды». */
+/** Порядок команд в «📋 Команди». */
 export const COMMAND_ORDER: ActionId[] = [
 	'expense',
 	'income',
@@ -133,12 +147,6 @@ export const COMMAND_ORDER: ActionId[] = [
 	'main',
 	'help'
 ];
-
-/** Для setMyCommands. */
-export const COMMANDS = COMMAND_ORDER.map((id) => ({
-	command: ACTIONS[id].command,
-	description: ACTIONS[id].description
-}));
 
 /** Главный экран клавиатуры: крупные кнопки самого частого. */
 export const MAIN_ROWS: ActionId[][] = [
@@ -155,7 +163,7 @@ export const COMMAND_ROWS: ActionId[][] = [
 	['help', 'main']
 ];
 
-export const INPUT_PLACEHOLDER = 'Сумма и на что: 250 продукты';
+export const INPUT_PLACEHOLDER = 'Сума й на що: 250 продукти';
 
 function keyButton(id: ActionId): KeyboardButton.CommonButton {
 	const { label, style } = ACTIONS[id];
@@ -192,17 +200,23 @@ function bareLabel(text: string): string {
 }
 
 const BY_LABEL = new Map<string, ActionId>();
+const OLD_LABELS = new Set<string>();
 for (const [id, action] of Object.entries(ACTIONS) as [ActionId, Action][]) {
-	for (const text of [action.label, action.command, ...(action.aliases ?? [])]) {
+	const old = action.old ?? [];
+	for (const text of [action.label, action.command, ...(action.aliases ?? []), ...old]) {
 		const key = bareLabel(text);
 		if (key && !BY_LABEL.has(key)) BY_LABEL.set(key, id);
 	}
+	for (const text of old) OLD_LABELS.add(text);
 }
+
+/** Нажата кнопка старой клавиатуры (русской или ещё более ранней) — её пора заменить. */
+export const isOldLabel = (text: string) => OLD_LABELS.has(text.trim());
 
 /**
  * Какую кнопку нажали. Сравниваем без значков, поэтому срабатывают и кнопки
- * старой клавиатуры («💰 Баланс»), и просто слово «месяц». Если в тексте есть
- * цифры — это запись операции, а не кнопка: «сегодня 250 кофе».
+ * старой клавиатуры («💳 Счета»), и просто слово — «місяць» или «месяц».
+ * Если в тексте есть цифры — это запись операции, а не кнопка: «сьогодні 250 кава».
  */
 export function matchButton(text: string): ActionId | null {
 	if (/\d/.test(text) || text.length > 40) return null;
