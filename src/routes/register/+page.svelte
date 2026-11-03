@@ -47,7 +47,7 @@
 				name="password"
 				type="password"
 				autocomplete="new-password"
-				minlength={8}
+				minlength={10}
 				required
 			/>
 		</div>

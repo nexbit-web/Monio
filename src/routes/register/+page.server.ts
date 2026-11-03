@@ -1,20 +1,17 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
-import { createSession, hashPassword } from '$lib/server/auth';
+import { createSession, hashPassword, passwordProblem } from '$lib/server/auth';
 import { initializeUser } from '$lib/server/finance/defaults';
+import { registrationOpen } from '$lib/server/registration';
 import type { Actions, PageServerLoad } from './$types';
 
-/** На публичном хостинге регистрацию стоит закрыть: ALLOW_REGISTRATION=false в .env. */
-const registrationOpen = () => env.ALLOW_REGISTRATION !== 'false';
-
 export const load: PageServerLoad = async () => {
-	if (!registrationOpen()) error(403, 'Регистрация закрыта');
+	if (!(await registrationOpen())) error(403, 'Регистрация закрыта');
 };
 
 export const actions: Actions = {
 	default: async (event) => {
-		if (!registrationOpen())
+		if (!(await registrationOpen()))
 			return fail(403, { email: '', name: '', message: 'Регистрация закрыта' });
 
 		const form = await event.request.formData();
@@ -29,8 +26,8 @@ export const actions: Actions = {
 
 		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
 			return fail(400, { email, name, message: 'Некорректная почта' });
-		if (password.length < 8 || password.length > 200)
-			return fail(400, { email, name, message: 'Пароль — от 8 символов' });
+		const weak = passwordProblem(password, email);
+		if (weak) return fail(400, { email, name, message: weak });
 
 		const exists = await db.user.findUnique({ where: { email } });
 		if (exists) return fail(400, { email, name, message: 'Такая почта уже зарегистрирована' });

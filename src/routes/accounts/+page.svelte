@@ -89,7 +89,7 @@
 </PageHeader>
 
 <div class="grid gap-3 pb-6">
-	<!-- главная цифра страницы — на тёмной карточке, как фирменный блок в DESIGN.md -->
+	<!-- главная цифра страницы — на тёмной карточке -->
 	<div
 		class="flex flex-wrap items-center gap-4 rounded-[12px] bg-[linear-gradient(#1d1d20_24%,#0b0b0c)] px-5 py-5 text-white"
 	>

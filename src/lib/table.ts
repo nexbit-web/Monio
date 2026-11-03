@@ -26,14 +26,6 @@ export const pill =
 export const pillActive =
 	'flex h-6 items-center gap-1.5 rounded-full border border-transparent bg-violet/15 px-2.5 text-[12px] font-medium text-violet transition-colors hover:bg-violet/20';
 
-/** Меню фильтра под пилюлей: компактное, с большим скруглением. */
-export const menu = 'w-48 rounded-[12px] p-1 shadow-xl';
-export const menuItem = 'h-7.5 gap-2 rounded-[7px] px-2 text-[13px]';
-
-/** Плашка в клетке (статус): заливка, значок, заглавные буквы. */
-export const badge =
-	'inline-flex h-5.5 items-center gap-1 rounded-[6px] px-2 text-[11px] font-semibold tracking-wide whitespace-nowrap uppercase';
-
 /** Главная кнопка панели над таблицей: маленькая, в цвет темы. */
 export const primaryAction =
 	'flex h-6 items-center gap-1 rounded-[6px] bg-primary px-2.5 text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50';

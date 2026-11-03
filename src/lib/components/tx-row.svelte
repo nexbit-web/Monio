@@ -4,7 +4,7 @@
 	import { formatTime } from '$lib/date';
 	import { cn } from '$lib/utils';
 	import FinIcon from './fin-icon.svelte';
-	import Send from '@lucide/svelte/icons/send';
+	import TelegramLogo from './telegram-logo.svelte';
 
 	type Ref = { id: string; name: string; icon: string } | null;
 
@@ -56,9 +56,7 @@
 				{title}
 			</span>
 			{#if tx.source === 'TELEGRAM'}
-				<span class="shrink-0 text-muted-foreground" title="Записано через Telegram">
-					<Send size={11} />
-				</span>
+				<span class="shrink-0" title="Записано через Telegram"><TelegramLogo size={13} /></span>
 			{/if}
 		</span>
 		<span class="block truncate text-xs text-muted-foreground">

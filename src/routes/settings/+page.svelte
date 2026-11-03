@@ -5,7 +5,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import NativeSelect from '$lib/components/native-select.svelte';
 	import ActionButton from '$lib/components/action-button.svelte';
-	import Mascot from '$lib/components/mascot.svelte';
+	import TelegramLogo from '$lib/components/telegram-logo.svelte';
 	import { ACCENTS, DEFAULT_ACCENT, useAccent } from '$lib/accent';
 	import { TIMEZONES, formatDay } from '$lib/date';
 	import { onMount } from 'svelte';
@@ -15,6 +15,9 @@
 	import Unlink from '@lucide/svelte/icons/unlink';
 	import Download from '@lucide/svelte/icons/download';
 	import LogOut from '@lucide/svelte/icons/log-out';
+	import ShieldCheck from '@lucide/svelte/icons/shield-check';
+	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
+	import MonitorX from '@lucide/svelte/icons/monitor-x';
 
 	let { data, form } = $props();
 
@@ -220,11 +223,137 @@
 		</div>
 	</section>
 
+	<!-- Вход и безопасность -->
+	<section id="security" class="scroll-mt-6 space-y-8 border-b border-border py-8">
+		<div class={row}>
+			<div>
+				<h2 class="{title} flex items-center gap-2">
+					<ShieldCheck size={18} /> Вход и безопасность
+				</h2>
+				<p class={hint}>
+					Почта и пароль для входа в Monio. После смены все остальные устройства выйдут из аккаунта.
+				</p>
+			</div>
+			<form
+				method="POST"
+				action="?/security"
+				class="grid max-w-md gap-4"
+				use:enhance={() =>
+					async ({ result, update }) => {
+						if (result.type === 'success') {
+							const revoked = Number(result.data?.revoked ?? 0);
+							toast.success(
+								revoked ? `Сохранено. Вышли на других устройствах: ${revoked}` : 'Сохранено'
+							);
+						}
+						if (result.type === 'failure')
+							toast.error(String(result.data?.securityError ?? 'Ошибка'));
+						await update({ reset: result.type === 'success' });
+					}}
+			>
+				{#if data.security.knownPassword || data.security.demoEmail}
+					<div
+						class="flex gap-2.5 rounded-[10px] border border-destructive/40 bg-destructive/8 p-3 text-[13px]"
+						role="alert"
+					>
+						<TriangleAlert size={16} class="mt-0.5 shrink-0 text-destructive" />
+						<p>
+							{#if data.security.knownPassword}
+								<b>Пароль известен всем.</b> Он есть в открытом коде Monio или в списках самых частых
+								паролей — смени его, чтобы никто, кроме тебя, не смог войти.
+							{:else}
+								<b>Почта для входа — демо-адрес из открытого кода.</b> Пароль у тебя уже свой, но почту
+								лучше тоже поменять на свою: тогда для входа не известно ничего.
+							{/if}
+						</p>
+					</div>
+				{/if}
+				<div>
+					<label for="sec-email" class={label}>Почта для входа</label>
+					<Input
+						id="sec-email"
+						name="email"
+						type="email"
+						autocomplete="username"
+						value={data.profile.email}
+						maxlength={200}
+						required
+					/>
+				</div>
+				<div class="grid gap-4 sm:grid-cols-2">
+					<div>
+						<label for="sec-new" class={label}>Новый пароль</label>
+						<Input
+							id="sec-new"
+							name="newPassword"
+							type="password"
+							autocomplete="new-password"
+							minlength={10}
+							maxlength={200}
+							placeholder="от 10 символов"
+						/>
+					</div>
+					<div>
+						<label for="sec-repeat" class={label}>Ещё раз</label>
+						<Input
+							id="sec-repeat"
+							name="repeatPassword"
+							type="password"
+							autocomplete="new-password"
+							maxlength={200}
+						/>
+					</div>
+				</div>
+				<div>
+					<label for="sec-current" class={label}>Текущий пароль — для подтверждения</label>
+					<Input
+						id="sec-current"
+						name="currentPassword"
+						type="password"
+						autocomplete="current-password"
+						maxlength={200}
+						required
+					/>
+				</div>
+				{#if form && 'securityError' in form && form.securityError}
+					<p class="text-[13px] text-destructive">{form.securityError}</p>
+				{/if}
+				<Button type="submit" size="sm" class="w-fit">Сохранить</Button>
+			</form>
+		</div>
+
+		<div class={row}>
+			<div>
+				<h2 class={title}>Устройства</h2>
+				<p class={hint}>
+					Где сейчас открыт Monio: {data.security.sessions}
+					{data.security.sessions === 1 ? 'устройство' : 'устройств(а)'}, включая это. Если среди
+					них есть чужое — выйди везде.
+				</p>
+			</div>
+			<form
+				method="POST"
+				action="?/signOutOthers"
+				class="flex items-center"
+				use:enhance={() =>
+					async ({ result, update }) => {
+						if (result.type === 'success')
+							toast.success(`Вышли на других устройствах: ${Number(result.data?.revoked ?? 0)}`);
+						await update();
+					}}
+			>
+				<Button type="submit" variant="outline" size="sm" disabled={data.security.sessions <= 1}>
+					<MonitorX /> Выйти на всех остальных
+				</Button>
+			</form>
+		</div>
+	</section>
+
 	<!-- Telegram -->
 	<section id="telegram" class="scroll-mt-6 border-b border-border py-8">
 		<div class={row}>
 			<div>
-				<h2 class="{title} flex items-center gap-2"><Mascot size={22} /> Telegram-бот</h2>
+				<h2 class="{title} flex items-center gap-2"><TelegramLogo size={20} /> Telegram-бот</h2>
 				<p class={hint}>
 					Записывай траты с телефона за пару секунд: «250 продукты», «+30000 зарплата».
 				</p>

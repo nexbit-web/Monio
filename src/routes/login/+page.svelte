@@ -39,7 +39,13 @@
 
 		<div class="grid gap-2">
 			<Label for="password">Пароль</Label>
-			<Input id="password" name="password" type="password" autocomplete="current-password" required />
+			<Input
+				id="password"
+				name="password"
+				type="password"
+				autocomplete="current-password"
+				required
+			/>
 		</div>
 
 		{#if form?.message}
@@ -52,6 +58,11 @@
 	</form>
 
 	{#snippet footer()}
-		Нет аккаунта? <a href="/register" class="font-medium text-link hover:underline">Регистрация</a>
+		{#if data.canRegister}
+			Нет аккаунта? <a href="/register" class="font-medium text-link hover:underline">Регистрация</a
+			>
+		{:else}
+			Monio — личная CRM: новые аккаунты не создаются.
+		{/if}
 	{/snippet}
 </AuthShell>

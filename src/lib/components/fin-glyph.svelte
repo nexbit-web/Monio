@@ -68,11 +68,20 @@
 	{:else if name === 'taxi'}
 		<g transform="translate(0 -0.6)">
 			{@render car()}
-			<path d="M11.4 5.2h1.2a.6.6 0 0 1 .6.6v1H10.8v-1a.6.6 0 0 1 .6-.6Z" transform="translate(.6 0)" />
+			<path
+				d="M11.4 5.2h1.2a.6.6 0 0 1 .6.6v1H10.8v-1a.6.6 0 0 1 .6-.6Z"
+				transform="translate(.6 0)"
+			/>
 		</g>
 	{:else if name === 'fuel'}
-		<path fill-rule="evenodd" d="M6.5 3h6A1.5 1.5 0 0 1 14 4.5V20H5V4.5A1.5 1.5 0 0 1 6.5 3ZM7 5.4v3.8h5V5.4Z" />
-		{@render line('M3.5 20.6h12M14 8.2h1.5a1.3 1.3 0 0 1 1.3 1.3v6a1.2 1.2 0 0 0 2.4 0V9l-2-2.4', 2)}
+		<path
+			fill-rule="evenodd"
+			d="M6.5 3h6A1.5 1.5 0 0 1 14 4.5V20H5V4.5A1.5 1.5 0 0 1 6.5 3ZM7 5.4v3.8h5V5.4Z"
+		/>
+		{@render line(
+			'M3.5 20.6h12M14 8.2h1.5a1.3 1.3 0 0 1 1.3 1.3v6a1.2 1.2 0 0 0 2.4 0V9l-2-2.4',
+			2
+		)}
 	{:else if name === 'travel'}
 		<path
 			d="M12 2.5c.9 0 1.6 1 1.6 2.4v4.3l7 4.1c.3.2.4.5.4.8v1.2c0 .4-.4.6-.7.5l-6.7-2.1v3.9l2 1.5c.2.2.3.4.3.6v.9c0 .3-.3.6-.6.5L12 19.9l-3.3 1.2c-.3.1-.6-.1-.6-.5v-.9c0-.2.1-.5.3-.6l2-1.5v-3.9l-6.7 2.1c-.3.1-.7-.1-.7-.5v-1.2c0-.3.2-.6.4-.8l7-4.1V4.9c0-1.4.7-2.4 1.6-2.4Z"
@@ -93,7 +102,10 @@
 			d="M8.2 2h7.6a2.7 2.7 0 0 1 2.7 2.7v14.6a2.7 2.7 0 0 1-2.7 2.7H8.2a2.7 2.7 0 0 1-2.7-2.7V4.7A2.7 2.7 0 0 1 8.2 2ZM7.8 4.6v12h8.4v-12ZM12 17.8a1 1 0 1 0 0 2 1 1 0 1 0 0-2Z"
 		/>
 	{:else if name === 'internet'}
-		{@render line('M2.8 9.4a13 13 0 0 1 18.4 0M6 12.7a8.5 8.5 0 0 1 12 0M9.1 16a4.1 4.1 0 0 1 5.8 0', 2.4)}
+		{@render line(
+			'M2.8 9.4a13 13 0 0 1 18.4 0M6 12.7a8.5 8.5 0 0 1 12 0M9.1 16a4.1 4.1 0 0 1 5.8 0',
+			2.4
+		)}
 		<circle cx="12" cy="19.4" r="1.7" />
 	{:else if name === 'subscriptions'}
 		{@render line('M19.6 10.5A7.7 7.7 0 0 0 6 7.2M4.4 13.5A7.7 7.7 0 0 0 18 16.8', 2.4)}
@@ -149,7 +161,12 @@
 			d="M12 7.4C10.9 4.7 7.6 4 7.6 5.9c0 1.3 2.2 1.5 4.4 1.5Zm0 0c1.1-2.7 4.4-3.4 4.4-1.5 0 1.3-2.2 1.5-4.4 1.5Z"
 		/>
 	{:else if name === 'education'}
-		<path d="M12 3.6 2.5 8.4 12 13.2l9.5-4.8Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" />
+		<path
+			d="M12 3.6 2.5 8.4 12 13.2l9.5-4.8Z"
+			stroke="currentColor"
+			stroke-width="1.4"
+			stroke-linejoin="round"
+		/>
 		<path d="M6.2 11.2v3.9c0 1.8 2.6 3.3 5.8 3.3s5.8-1.5 5.8-3.3v-3.9L12 14.1Z" />
 		{@render line('M21.2 8.6v5.2', 1.8)}
 		<circle cx="21.2" cy="15" r="1.2" />
@@ -205,7 +222,10 @@
 			d="M5 7.4h14a2 2 0 0 1 2 2v8.8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9.4a2 2 0 0 1 2-2ZM3 12.6v1.1h7.6v-1.1Zm10.4 0v1.1H21v-1.1Z"
 		/>
 	{:else if name === 'freelance'}
-		<path fill-rule="evenodd" d="M6.5 4h11A1.5 1.5 0 0 1 19 5.5V14H5V5.5A1.5 1.5 0 0 1 6.5 4ZM7 6v6h10V6Z" />
+		<path
+			fill-rule="evenodd"
+			d="M6.5 4h11A1.5 1.5 0 0 1 19 5.5V14H5V5.5A1.5 1.5 0 0 1 6.5 4ZM7 6v6h10V6Z"
+		/>
 		<path d="M2.5 15.4h19l-.6 2.2a1.8 1.8 0 0 1-1.74 1.3H4.84a1.8 1.8 0 0 1-1.74-1.3Z" />
 	{:else if name === 'sidejob'}
 		<!-- гаечный ключ: контур Lucide «wrench», залитый -->
@@ -218,7 +238,12 @@
 	{:else if name === 'party'}
 		<!-- воздушный шар -->
 		<ellipse cx="12" cy="9.4" rx="5.6" ry="6.6" />
-		<path d="M10.9 15.6h2.2l-1.1 1.7Z" stroke="currentColor" stroke-width=".8" stroke-linejoin="round" />
+		<path
+			d="M10.9 15.6h2.2l-1.1 1.7Z"
+			stroke="currentColor"
+			stroke-width=".8"
+			stroke-linejoin="round"
+		/>
 		{@render line('M12 17.6c-1.3 1.3 1.3 2.2 0 3.8', 1.6)}
 	{:else if name === 'cashback'}
 		<path
@@ -268,7 +293,10 @@
 		<path
 			d="M5.5 5H18a2 2 0 0 1 2 2v1.5h-4.5a3.5 3.5 0 0 0 0 7H20V17a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5v-9A2.5 2.5 0 0 1 5.5 5Z"
 		/>
-		<path fill-rule="evenodd" d="M15.5 10H21v4h-5.5a2 2 0 0 1 0-4Zm.1 1.1a.9.9 0 1 0 0 1.8.9.9 0 1 0 0-1.8Z" />
+		<path
+			fill-rule="evenodd"
+			d="M15.5 10H21v4h-5.5a2 2 0 0 1 0-4Zm.1 1.1a.9.9 0 1 0 0 1.8.9.9 0 1 0 0-1.8Z"
+		/>
 	{:else if name === 'euro'}
 		{@render line('M17.8 6.6a6.6 6.6 0 1 0 0 10.8M4.5 10.4h9M4.5 13.8h8', 2.4)}
 	{:else if name === 'dollar'}
@@ -283,7 +311,12 @@
 		<circle cx="12" cy="17.6" r="1.4" />
 	{:else}
 		<!-- other: коробка из трёх граней с зазорами -->
-		<path d="M12 2.8l8 3.9-8 4.1-8-4.1Z" stroke="currentColor" stroke-width="1" stroke-linejoin="round" />
+		<path
+			d="M12 2.8l8 3.9-8 4.1-8-4.1Z"
+			stroke="currentColor"
+			stroke-width="1"
+			stroke-linejoin="round"
+		/>
 		<path d="M3.5 8.4 11.3 12.3v8.9L4.6 17.8A2 2 0 0 1 3.5 16Z" />
 		<path d="M20.5 8.4 12.7 12.3v8.9l6.7-3.4a2 2 0 0 0 1.1-1.8Z" />
 	{/if}

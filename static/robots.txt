@@ -1,3 +1,3 @@
-# allow crawling everything by default
+# Monio — личная CRM: поисковикам здесь делать нечего
 User-agent: *
-Disallow:
+Disallow: /

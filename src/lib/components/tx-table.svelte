@@ -9,7 +9,7 @@
 	import { bodyRow, cell, headRow, table } from '$lib/table';
 	import { cn } from '$lib/utils';
 	import FinIcon from './fin-icon.svelte';
-	import Send from '@lucide/svelte/icons/send';
+	import TelegramLogo from './telegram-logo.svelte';
 	import Monitor from '@lucide/svelte/icons/monitor';
 
 	type Ref = { id: string; name: string; icon: string } | null;
@@ -106,7 +106,7 @@
 
 					<span class="{cell} gap-1.5 text-muted-foreground" role="cell">
 						{#if r.source === 'TELEGRAM'}
-							<Send size={13} class="shrink-0 text-[#229ed9]" /> Telegram
+							<TelegramLogo size={15} /> <span class="text-foreground">Telegram</span>
 						{:else}
 							<Monitor size={13} class="shrink-0" /> Вручную
 						{/if}

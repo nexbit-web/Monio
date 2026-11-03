@@ -52,7 +52,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	return new Response(csv, {
 		headers: {
 			'Content-Type': 'text/csv; charset=utf-8',
-			'Content-Disposition': `attachment; filename="moneta-${name}.csv"`,
+			'Content-Disposition': `attachment; filename="monio-${name}.csv"`,
 			'Cache-Control': 'no-store'
 		}
 	});
