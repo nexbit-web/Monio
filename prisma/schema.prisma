@@ -1,0 +1,165 @@
+// Схема БД учёта доходов и расходов.
+// Документация: https://pris.ly/d/prisma-schema
+//
+// Все суммы — целые копейки (Int), чтобы не ловить ошибки округления float.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/lib/server/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TxType {
+  EXPENSE
+  INCOME
+  /// Перемещение между своими счетами — не доход и не расход
+  TRANSFER
+}
+
+enum CategoryKind {
+  EXPENSE
+  INCOME
+}
+
+enum AccountType {
+  CARD
+  CASH
+  SAVINGS
+  OTHER
+}
+
+enum TxSource {
+  WEB
+  TELEGRAM
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+
+  /// Границы дня и месяца считаем в этой зоне, а не в UTC сервера
+  timezone      String    @default("Europe/Kyiv")
+  /// Когда созданы стартовые счета и категории; null — ещё не создавали
+  initializedAt DateTime?
+
+  sessions      Session[]
+  accounts      Account[]
+  categories    Category[]
+  transactions  Transaction[]
+  telegramLinks TelegramLink[]
+  telegramCodes TelegramLinkCode[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Кошелёк: карта, наличные, накопления.
+model Account {
+  id             String      @id @default(cuid())
+  userId         String
+  name           String
+  type           AccountType @default(CARD)
+  icon           String      @default("💳")
+  /// Остаток на момент начала учёта
+  openingBalance Int         @default(0)
+  /// Сюда пишутся операции из Telegram, если счёт не выбран
+  isDefault      Boolean     @default(false)
+  archived       Boolean     @default(false)
+  sortOrder      Int         @default(0)
+  createdAt      DateTime    @default(now())
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions      Transaction[] @relation("TxAccount")
+  incomingTransfers Transaction[] @relation("TxToAccount")
+
+  @@index([userId])
+}
+
+model Category {
+  id            String       @id @default(cuid())
+  userId        String
+  kind          CategoryKind
+  name          String
+  icon          String       @default("📦")
+  /// Слова, по которым бот узнаёт категорию в сообщении: «атб», «такси», «киевстар»
+  keywords      String[]     @default([])
+  /// Месячный лимит (только для расходов); null — без лимита
+  monthlyBudget Int?
+  archived      Boolean      @default(false)
+  sortOrder     Int          @default(0)
+  createdAt     DateTime     @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, kind, name])
+  @@index([userId, kind])
+}
+
+model Transaction {
+  id          String    @id @default(cuid())
+  userId      String
+  type        TxType
+  /// Всегда > 0; направление задаёт type
+  amount      Int
+  occurredAt  DateTime  @db.Timestamptz(3)
+  accountId   String
+  /// Только для TRANSFER — счёт-получатель
+  toAccountId String?
+  /// null у переводов и у операций, которым ещё не выбрали категорию
+  categoryId  String?
+  note        String?
+  source      TxSource  @default(WEB)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account   Account   @relation("TxAccount", fields: [accountId], references: [id], onDelete: NoAction)
+  toAccount Account?  @relation("TxToAccount", fields: [toAccountId], references: [id], onDelete: NoAction)
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([userId, occurredAt])
+  @@index([userId, categoryId, occurredAt])
+  @@index([accountId])
+  @@index([toAccountId])
+}
+
+/// Привязка Telegram-аккаунта к пользователю CRM.
+model TelegramLink {
+  /// id пользователя Telegram (в личном чате совпадает с chat id)
+  telegramId        BigInt    @id
+  userId            String
+  username          String?
+  firstName         String?
+  /// Выбрали категорию кнопкой и ждём сумму следующим сообщением
+  pendingCategoryId String?
+  pendingAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Одноразовый код для /start: CRM выдаёт ссылку t.me/<бот>?start=<code>.
+model TelegramLinkCode {
+  code      String   @id
+  userId    String
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
