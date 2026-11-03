@@ -4,7 +4,7 @@ import { createSession, verifyPassword } from '$lib/server/auth';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ url }) => ({
-	redirectTo: url.searchParams.get('redirectTo') ?? '/today'
+	redirectTo: url.searchParams.get('redirectTo') ?? '/'
 });
 
 export const actions: Actions = {
@@ -14,7 +14,7 @@ export const actions: Actions = {
 			.trim()
 			.toLowerCase();
 		const password = String(form.get('password') ?? '');
-		const redirectTo = String(form.get('redirectTo') || '/today');
+		const redirectTo = String(form.get('redirectTo') || '/');
 
 		if (!email || !password) {
 			return fail(400, { email, message: 'Введи почту и пароль' });
@@ -26,6 +26,7 @@ export const actions: Actions = {
 		}
 
 		await createSession(user.id, event);
-		redirect(303, redirectTo.startsWith('/') ? redirectTo : '/today');
+		// только свои пути: «//evil.com» и «/\evil.com» браузер воспринял бы как чужой сайт
+		redirect(303, /^\/(?![/\\])/.test(redirectTo) ? redirectTo : '/');
 	}
 };

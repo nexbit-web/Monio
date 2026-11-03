@@ -1,40 +1,46 @@
-import { fail, redirect } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
 import { db } from '$lib/server/db';
 import { createSession, hashPassword } from '$lib/server/auth';
-import { fromISODate, todayISO } from '$lib/date';
-import type { Actions } from './$types';
+import { initializeUser } from '$lib/server/finance/defaults';
+import type { Actions, PageServerLoad } from './$types';
+
+/** На публичном хостинге регистрацию стоит закрыть: ALLOW_REGISTRATION=false в .env. */
+const registrationOpen = () => env.ALLOW_REGISTRATION !== 'false';
+
+export const load: PageServerLoad = async () => {
+	if (!registrationOpen()) error(403, 'Регистрация закрыта');
+};
 
 export const actions: Actions = {
 	default: async (event) => {
+		if (!registrationOpen())
+			return fail(403, { email: '', name: '', message: 'Регистрация закрыта' });
+
 		const form = await event.request.formData();
 		const email = String(form.get('email') ?? '')
 			.trim()
-			.toLowerCase();
+			.toLowerCase()
+			.slice(0, 200);
 		const password = String(form.get('password') ?? '');
-		const name = String(form.get('name') ?? '').trim();
-		const heightRaw = String(form.get('heightCm') ?? '').replace(',', '.');
-		const startRaw = String(form.get('programStart') ?? '');
+		const name = String(form.get('name') ?? '')
+			.trim()
+			.slice(0, 60);
 
-		if (!email.includes('@')) return fail(400, { email, name, message: 'Некорректная почта' });
-		if (password.length < 8)
-			return fail(400, { email, name, message: 'Пароль — минимум 8 символов' });
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+			return fail(400, { email, name, message: 'Некорректная почта' });
+		if (password.length < 8 || password.length > 200)
+			return fail(400, { email, name, message: 'Пароль — от 8 символов' });
 
 		const exists = await db.user.findUnique({ where: { email } });
 		if (exists) return fail(400, { email, name, message: 'Такая почта уже зарегистрирована' });
 
-		const height = Number(heightRaw);
-
 		const user = await db.user.create({
-			data: {
-				email,
-				name: name || null,
-				passwordHash: await hashPassword(password),
-				heightCm: Number.isFinite(height) && height > 0 ? height : null,
-				programStartDate: fromISODate(/^\d{4}-\d{2}-\d{2}$/.test(startRaw) ? startRaw : todayISO())
-			}
+			data: { email, name: name || null, passwordHash: await hashPassword(password) }
 		});
+		await initializeUser(db, user.id);
 
 		await createSession(user.id, event);
-		redirect(303, '/today');
+		redirect(303, '/');
 	}
 };

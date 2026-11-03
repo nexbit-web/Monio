@@ -9,7 +9,7 @@ const scrypt = promisify(scryptCb) as (
 	keylen: number
 ) => Promise<Buffer>;
 
-export const SESSION_COOKIE = 'gymtrack_session';
+export const SESSION_COOKIE = 'moneta_session';
 const SESSION_TTL_DAYS = 60;
 
 export async function hashPassword(password: string): Promise<string> {

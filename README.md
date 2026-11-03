@@ -1,42 +1,68 @@
-# sv
+# Moneta — учёт доходов и расходов
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Личная CRM для денег и Telegram-бот, через который траты записываются за пару секунд.
 
-## Creating a project
+- **Бот:** пишешь `250 продукты`, `кофе 65`, `вчера такси 180`, `+30000 зарплата` — сумма, категория и дата
+  распознаются сами. Не узнал слово — предложит кнопки и запомнит выбор.
+- **CRM:** обзор месяца с сравнением к прошлому, расходы по категориям и лимиты, лента операций с
+  фильтрами и выгрузкой в CSV, аналитика «категория × месяц», счета и переводы между ними.
 
-If you're seeing this, you've probably already done this step. Congrats!
+Стек: SvelteKit 2 · Svelte 5 · Prisma 7 · Postgres (Neon) · grammY · Tailwind + shadcn-svelte.
+Суммы хранятся в копейках, границы дня и месяца считаются в часовом поясе пользователя (по умолчанию Киев).
 
-```sh
-# create a new project
-npx sv create my-app
-```
-
-To recreate this project with the same configuration:
-
-```sh
-# recreate this project
-npx sv@0.17.0 create --template minimal --types ts --add tailwindcss="plugins:none" prettier --no-download-check --install npm .
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Запуск
 
 ```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+npm install
+cp .env.example .env        # вписать DATABASE_URL (и DIRECT_URL — тот же адрес без «-pooler»)
+npm run db:deploy           # создать таблицы
+npm run db:seed             # необязательно: демо-аккаунт demo@moneta.local / demo12345
+npm run dev                 # CRM на http://localhost:5173
 ```
 
-## Building
+### Telegram-бот
 
-To create a production version of your app:
+1. В Telegram открой [@BotFather](https://t.me/BotFather) → `/newbot` → скопируй токен в `.env`:
+   `TELEGRAM_BOT_TOKEN=…`
+2. Во втором терминале: `npm run bot` (режим long polling — работает, пока запущен).
+3. В CRM: **Настройки → Telegram → Подключить** и перейди по ссылке. Ссылка одноразовая, живёт 15 минут.
 
-```sh
-npm run build
+Бот отвечает только привязанным аккаунтам и только в личке.
+
+Команды: `/today`, `/month`, `/balance`, `/last`, `/undo`, `/categories`, `/help` — и те же кнопки внизу чата.
+
+### Чтобы бот работал с телефона всегда
+
+Компьютер не обязан быть включён, если выложить CRM на хостинг (например, Vercel — `adapter-auto` его
+распознаёт). База уже в облаке Neon.
+
+1. Задеплой проект, в переменных окружения хостинга укажи `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`,
+   `TELEGRAM_WEBHOOK_SECRET` (любая длинная строка из `A-Z a-z 0-9 _ -`) и `ALLOW_REGISTRATION=false`.
+2. Локально: `npm run bot:webhook -- https://твой-домен` — Telegram начнёт слать сообщения на
+   `/api/telegram`. Обратно на polling: просто `npm run bot` (он снимет вебхук).
+
+## Команды
+
+| Команда               | Что делает                                         |
+| --------------------- | -------------------------------------------------- |
+| `npm run dev`         | CRM в режиме разработки                            |
+| `npm run bot`         | бот (long polling)                                 |
+| `npm run bot:webhook` | подключить бота к задеплоенной CRM через вебхук    |
+| `npm run db:deploy`   | применить миграции к базе                          |
+| `npm run db:migrate`  | создать новую миграцию после правки схемы          |
+| `npm run db:seed`     | пересоздать демо-аккаунт                           |
+| `npm run db:studio`   | Prisma Studio — посмотреть таблицы                 |
+| `npm run check`       | проверка типов                                     |
+| `npm test`            | юнит-тесты (парсер сумм, категории, часовые пояса) |
+
+## Где что лежит
+
 ```
-
-You can preview the production build with `npm run preview`.
-
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+prisma/schema.prisma            модель данных: счета, категории, операции, привязки Telegram
+src/lib/money.ts, date.ts       деньги в копейках и даты с учётом часового пояса (общие для CRM и бота)
+src/lib/server/finance/         стартовые категории, угадывание категории, статистика, фильтры, сохранение
+src/lib/server/bot/             Telegram-бот и разбор свободного текста
+src/routes/                     страницы CRM; api/telegram — вебхук
+scripts/                        запуск бота и установка вебхука
+_archive/                       бэкап прежнего фитнес-проекта (в git не попадает)
+```

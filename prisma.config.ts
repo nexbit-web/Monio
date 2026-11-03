@@ -7,7 +7,7 @@ export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
-    seed: "node --experimental-strip-types prisma/seed.ts",
+    seed: "node --experimental-strip-types --disable-warning=ExperimentalWarning prisma/seed.ts",
   },
   datasource: {
     // Миграции гоняем по прямому (не pooled) подключению Neon

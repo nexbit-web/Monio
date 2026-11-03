@@ -1,94 +1,161 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
-@import "shadcn-svelte/tailwind.css";
-@import "@fontsource-variable/geist";
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+@import '@fontsource-variable/inter';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.141 0.005 285.823);
+	--scrollbar: rgba(0, 0, 0, 0.16);
+	/* Скелетон: основа й світліша хвиля, що біжить по ній. */
+	--skeleton: #ededed;
+	--skeleton-shine: #f8f8f8;
+	--scrollbar-hover: rgba(0, 0, 0, 0.32);
+	--background: #fcfcfb;
+	--foreground: oklch(0.145 0 0);
 	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.141 0.005 285.823);
+	--card-foreground: oklch(0.145 0 0);
 	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.141 0.005 285.823);
-	--primary: oklch(0.52 0.105 223.128);
-	--primary-foreground: oklch(0.984 0.019 200.873);
-	--secondary: oklch(0.967 0.001 286.375);
-	--secondary-foreground: oklch(0.21 0.006 285.885);
-	--muted: oklch(0.967 0.001 286.375);
-	--muted-foreground: oklch(0.552 0.016 285.938);
-	--accent: oklch(0.967 0.001 286.375);
-	--accent-foreground: oklch(0.21 0.006 285.885);
+	--popover-foreground: oklch(0.145 0 0);
+	/* Головна дія, фокус поля, вибране — у колір сайдбару. Типова тема
+	   чорна, тож і кнопки чорні; кольорова тема з налаштувань перефарбовує
+	   їх (src/lib/accent.ts). */
+	--primary: #111111;
+	--primary-foreground: #ffffff;
+	--secondary: oklch(0.97 0 0);
+	--secondary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--accent: oklch(0.97 0 0);
+	--accent-foreground: oklch(0.205 0 0);
 	--destructive: oklch(0.577 0.245 27.325);
-	--border: oklch(0.92 0.004 286.32);
-	--input: oklch(0.92 0.004 286.32);
-	--ring: oklch(0.705 0.015 286.067);
-	--chart-1: oklch(0.865 0.127 207.078);
-	--chart-2: oklch(0.715 0.143 215.221);
-	--chart-3: oklch(0.609 0.126 221.723);
-	--chart-4: oklch(0.52 0.105 223.128);
-	--chart-5: oklch(0.45 0.085 224.283);
-	--radius: 0.625rem;
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.141 0.005 285.823);
-	--sidebar-primary: oklch(0.609 0.126 221.723);
-	--sidebar-primary-foreground: oklch(0.984 0.019 200.873);
-	--sidebar-accent: oklch(0.967 0.001 286.375);
-	--sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-	--sidebar-border: oklch(0.92 0.004 286.32);
-	--sidebar-ring: oklch(0.705 0.015 286.067);
-	--signal-green: oklch(0.62 0.17 148);
-	--signal-yellow: oklch(0.72 0.15 85);
-	--signal-red: oklch(0.58 0.21 25);
-	--signal-gray: oklch(0.6 0.02 250);
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: #111111;
+	/* Піднятий елемент усередині картки чи діалога: поле вводу, вибраний
+	   сегмент перемикача. Раніше тут стояв --background, але в темній темі
+	   він чорний, і всередині сірого діалога давав чорні провали. */
+	--surface: #ffffff;
+	--brand: #7209b7;
+	/* Оболонка в стилі ClickUp: сіре полотно, на ньому шапка, чорний сайдбар
+	   і біла робоча панель. Фіолетовий — лише стан (вибраний фільтр, мітка),
+	   ніколи не головна кнопка. */
+	--shell: #ffffff;
+	/* Робоча панель і блоки на ній. У світлій темі блок — легка сіра
+	   підкладка без рамки (як і було), у темній — див. нижче. */
+	--panel: #ffffff;
+	/* Підкладка сторінок-форм (товар): у світлій темі — як панель. */
+	--canvas: #ffffff;
+	--block: color-mix(in srgb, var(--muted) 55%, transparent);
+	--block-border: transparent;
+	/* Шапка таблиці — на щабель темніша за клітинки (вони — bg-card). */
+	--table-head: #f7f7f7;
+	--rail: #111111;
+	--violet: #6647f0;
+	--violet-soft: #8f7af5;
+	/* Графики Monio: прогнаны через валидатор на #fff и #f8f8f8, все пары. */
+	--chart-1: #00948f;
+	--chart-2: #7c4ddb;
+	--chart-3: #c27c00;
+	--chart-4: #2f9e44;
+	--chart-5: #8b8f98;
+	/* Доходы, расходы и ссылки. */
+	--signal-green: #0b7d52;
+	--signal-yellow: #b26b00;
+	--signal-red: #d1342f;
+	--signal-gray: #8b8f98;
+	--link: #0a6fd1;
+	--radius: 0.45rem;
+	--sidebar: oklch(
+		0.145 0 0
+	); /* near-black (мʼякше за 0%); хочеш чистий чорний — постав oklch(0 0 0) */
+	--sidebar-foreground: oklch(0.985 0 0); /* білий текст + іконки  ← було 0.145 */
+	--sidebar-primary: oklch(0.985 0 0);
+	--sidebar-primary-foreground: oklch(0.205 0 0);
+	--sidebar-accent: oklch(0.269 0 0); /* ховер: ледь світліший за фон  ← було 0.97 */
+	--sidebar-accent-foreground: oklch(0.985 0 0);
+	--sidebar-border: oklch(1 0 0 / 10%);
+	--sidebar-ring: oklch(0.85 0 0);
 }
 
+/* ─── Темна тема ────────────────────────────────────────────────────────────
+   Палітра ClickUp (знята піпеткою з їхнього темного режиму) — це шкала Radix
+   «gray dark»: #111 полотно й панелі → #191919 сайдбар і меню → #222 заливки
+   → #2a2a2a рамки й ховер. Текст: #eee основний, #b4b4b4 другорядний,
+   #6e6e6e підказки. Головна кнопка — світла (#eee) з темним текстом, як у них;
+   кольорова тема з налаштувань перефарбовує її в свій колір. */
 .dark {
-	/* Неоновая тёмная схема: почти чёрный синий фон + холодный циан как акцент */
-	--background: oklch(0.15 0.018 256);
-	--foreground: oklch(0.97 0.008 240);
-	--card: oklch(0.2 0.021 256);
-	--card-foreground: oklch(0.97 0.008 240);
-	--popover: oklch(0.19 0.022 256);
-	--popover-foreground: oklch(0.97 0.008 240);
-	--primary: oklch(0.83 0.155 195);
-	--primary-foreground: oklch(0.17 0.03 220);
-	--secondary: oklch(0.26 0.025 256);
-	--secondary-foreground: oklch(0.97 0.008 240);
-	--muted: oklch(0.25 0.022 256);
-	--muted-foreground: oklch(0.7 0.024 250);
-	--accent: oklch(0.3 0.045 240);
-	--accent-foreground: oklch(0.97 0.008 240);
-	--destructive: oklch(0.68 0.21 18);
-	--border: oklch(0.75 0.06 220 / 16%);
-	--input: oklch(0.75 0.06 220 / 20%);
-	--ring: oklch(0.83 0.155 195 / 60%);
-	/* Палитра графиков: прогнана через валидатор (полоса светлоты для тёмной темы,
-	   разделимость при дальтонизме, контраст к подложке карточки). Порядок фиксированный. */
-	--chart-1: oklch(0.66 0.13 195);
-	--chart-2: oklch(0.6 0.19 300);
-	--chart-3: oklch(0.665 0.15 75);
-	--chart-4: oklch(0.52 0.15 150);
-	--chart-5: oklch(0.62 0.02 250);
-	--sidebar: oklch(0.18 0.021 256);
-	--sidebar-foreground: oklch(0.97 0.008 240);
-	--sidebar-primary: oklch(0.83 0.155 195);
-	--sidebar-primary-foreground: oklch(0.17 0.03 220);
-	--sidebar-accent: oklch(0.26 0.025 256);
-	--sidebar-accent-foreground: oklch(0.97 0.008 240);
-	--sidebar-border: oklch(0.75 0.06 220 / 16%);
-	--sidebar-ring: oklch(0.83 0.155 195 / 60%);
-
-	/* Светофор и семантика прогресса */
-	--signal-green: oklch(0.85 0.19 148);
-	--signal-yellow: oklch(0.85 0.16 90);
-	--signal-red: oklch(0.7 0.2 18);
-	--signal-gray: oklch(0.62 0.02 250);
+	--scrollbar: #484848;
+	--skeleton: #1d1d1d;
+	--skeleton-shine: #2a2a2a;
+	--scrollbar-hover: #606060;
+	--background: #111111;
+	--foreground: #eeeeee;
+	--card: #111111;
+	--card-foreground: #eeeeee;
+	/* Меню підняте над панеллю — на щабель світліше. */
+	--popover: #191919;
+	--popover-foreground: #eeeeee;
+	--primary: #eeeeee;
+	--primary-foreground: #111111;
+	--secondary: #222222;
+	--secondary-foreground: #eeeeee;
+	--muted: #222222;
+	--muted-foreground: #b4b4b4;
+	/* Ховер і підсвічений пункт меню. */
+	--accent: #2a2a2a;
+	--accent-foreground: #eeeeee;
+	--destructive: #ff453a;
+	--border: #2a2a2a;
+	/* Рамка поля трохи помітніша за роздільник — інакше порожнього інпута
+	   на темному тлі не видно. */
+	--input: #313131;
+	--ring: #606060;
+	/* Піднятий елемент усередині картки: поле вводу, вибраний сегмент. */
+	--surface: #222222;
+	--brand: #7209b7;
+	--shell: #111111;
+	/* Як у ClickUp (знято з їхнього скриншота): полотно й робоча панель одного
+	   кольору #111, панель відділяє лише рамка #2a2a2a. Блоки на панелі — теж
+	   #111, тож їх тримає рамка того ж кольору, що й лінії таблиць. */
+	--panel: #111111;
+	/* Підкладка сторінок із картками (товар, статистика, відвідуваність):
+	   чорна, щоб картки #111 читались контрастно, а шапка товару лишалась
+	   кольору панелі. */
+	--canvas: #090909;
+	--block: #111111;
+	--block-border: #2a2a2a;
+	/* Шапка таблиці світліша за клітинки (#111), як у ClickUp. */
+	--table-head: #191919;
+	--rail: #191919;
+	--violet: #8f7af5;
+	--violet-soft: #b4a6ff;
+	/* Те же роли; шаги проверены на #111 и #090909. */
+	--chart-1: #00aaab;
+	--chart-2: #935edf;
+	--chart-3: #c88300;
+	--chart-4: #3aa65a;
+	--chart-5: #7d8792;
+	--signal-green: #3ccf91;
+	--signal-yellow: #e3b341;
+	--signal-red: #ff6b6b;
+	--signal-gray: #7d8792;
+	--link: #4fb3ff;
+	--sidebar: #191919;
+	--sidebar-foreground: #eeeeee;
+	--sidebar-primary: #eeeeee;
+	--sidebar-primary-foreground: #111111;
+	--sidebar-accent: #2a2a2a;
+	--sidebar-accent-foreground: #eeeeee;
+	--sidebar-border: #2a2a2a;
+	--sidebar-ring: #606060;
 }
 
 @theme inline {
-	--font-sans: 'Geist Variable', sans-serif;
+	--font-sans: 'Inter Variable', sans-serif;
+	/* Заголовки тем же Inter; классы font-display — точка смены шрифта. */
+	--font-display: var(--font-sans);
+	--color-link: var(--link);
 	--color-signal-green: var(--signal-green);
 	--color-signal-yellow: var(--signal-yellow);
 	--color-signal-red: var(--signal-red);
@@ -124,6 +191,14 @@
 	--color-card: var(--card);
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
+	--color-surface: var(--surface);
+	--color-shell: var(--shell);
+	--color-panel: var(--panel);
+	--color-canvas: var(--canvas);
+	--color-table-head: var(--table-head);
+	--color-rail: var(--rail);
+	--color-violet: var(--violet);
+	--color-violet-soft: var(--violet-soft);
 	--radius-sm: calc(var(--radius) * 0.6);
 	--radius-md: calc(var(--radius) * 0.8);
 	--radius-lg: var(--radius);
@@ -138,17 +213,39 @@
 		@apply border-border outline-ring/50;
 	}
 	body {
-		@apply bg-background text-foreground;
-		/* Мягкое неоновое свечение по углам вместо плоского чёрного */
-		background-image:
-			radial-gradient(60rem 40rem at 12% -10%, oklch(0.83 0.155 195 / 12%), transparent 60%),
-			radial-gradient(50rem 35rem at 95% 0%, oklch(0.72 0.19 310 / 10%), transparent 55%);
-		background-attachment: fixed;
+		@apply bg-background text-foreground antialiased;
 	}
 	html {
 		@apply font-sans;
+		color-scheme: light;
 	}
-	/* Числовые поля: убираем стрелки, они мешают вводу «в 10 секунд» */
+	html.dark {
+		color-scheme: dark;
+	}
+
+	/* Tailwind v4 більше не ставить курсор-палець сам, а натиснути в CRM можна
+	   не тільки кнопку. Перелік клікабельного тримаємо тут, одним місцем. */
+	button:not(:disabled),
+	[role='button']:not([aria-disabled='true']),
+	a[href],
+	label[for],
+	summary,
+	select,
+	input[type='file'],
+	input[type='color'],
+	input[type='checkbox'],
+	input[type='radio'],
+	[role='menuitem']:not([aria-disabled='true']),
+	[role='menuitemradio']:not([aria-disabled='true']),
+	[role='menuitemcheckbox']:not([aria-disabled='true']),
+	[role='option']:not([aria-disabled='true']),
+	[role='tab']:not([aria-disabled='true']),
+	[role='switch']:not([aria-disabled='true']),
+	[role='checkbox']:not([aria-disabled='true']) {
+		cursor: pointer;
+	}
+
+	/* Числовые поля без стрелок — они мешают быстрому вводу */
 	input[type='number']::-webkit-outer-spin-button,
 	input[type='number']::-webkit-inner-spin-button {
 		-webkit-appearance: none;
@@ -160,16 +257,155 @@
 	}
 }
 
-@utility neon-ring {
+/* ─── Полоска загрузки (nav-progress.svelte) ───────────────────────────────
+   Вид как у nprogress в CRM: 2px в цвет темы, без спиннера, со свечением. */
+.nav-progress {
+	pointer-events: none;
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 100;
+	width: 100%;
+	height: 2px;
+	background: var(--primary);
+	/* Ползёт к 90% и ждёт: сколько грузится страница, заранее не известно. */
+	animation: nav-progress-run 8s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+}
+.nav-progress[data-done] {
+	animation: nav-progress-done 0.3s ease-out forwards;
+}
+.nav-progress-peg {
+	position: absolute;
+	right: 0;
+	display: block;
+	width: 100px;
+	height: 100%;
+	opacity: 1;
+	transform: rotate(3deg) translateY(-4px);
 	box-shadow:
-		0 0 0 1px oklch(0.83 0.155 195 / 35%),
-		0 0 32px -12px oklch(0.83 0.155 195 / 70%);
+		0 0 10px var(--brand),
+		0 0 5px var(--brand);
+}
+@keyframes nav-progress-run {
+	from {
+		transform: translateX(-92%);
+	}
+	to {
+		transform: translateX(-10%);
+	}
+}
+@keyframes nav-progress-done {
+	to {
+		transform: translateX(0);
+		opacity: 0;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.nav-progress {
+		animation: none;
+		transform: translateX(-30%);
+	}
 }
 
-@utility neon-text {
-	text-shadow: 0 0 24px oklch(0.83 0.155 195 / 45%);
+/* ─── Скролбар ──────────────────────────────────────────────────────────────
+   Тонкий і акуратний, як у macOS: заокруглений повзунок без стрілок, доріжка
+   прозора. Колір — з токенів теми, тож у світлій і темній однаково гарно. */
+::-webkit-scrollbar {
+	width: 10px;
+	height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+/* Доріжка не впирається в заокруглені кути панелі. */
+::-webkit-scrollbar-track {
+	margin-block: 6px;
+}
+::-webkit-scrollbar-thumb {
+	/* Прозора рамка + background-clip: видимий повзунок 4 px, а схопити
+	   мишкою можна всю ширину 10 px. */
+	border: 3px solid transparent;
+	border-radius: 999px;
+	background: var(--scrollbar) padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+	background-color: var(--scrollbar-hover);
+}
+::-webkit-scrollbar-button {
+	display: none;
+}
+
+/* Firefox не знає ::-webkit-scrollbar — йому стандартні властивості. У Chrome
+   їх не ставимо: вони вимикають ::-webkit-стилі вище. */
+@supports not selector(::-webkit-scrollbar) {
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: var(--scrollbar) transparent;
+	}
+}
+
+/* ─── Блок ──────────────────────────────────────────────────────────────────
+   Підкладка таблиць і карток на сторінках. Рамка — outline всередину: не
+   зсуває вміст і малюється поверх смугастих рядків, тож не перекривається
+   ними. У світлій темі вона прозора, у темній — #1c1c1c. */
+@utility bg-block {
+	background-color: var(--block);
+	outline: 1px solid var(--block-border);
+	outline-offset: -1px;
+}
+
+/* Скелетон: сіра плашка, по якій зліва направо біжить світла хвиля.
+   Хто просить менше руху в системі — бачить просто сіру плашку.
+
+   Хвиля з мʼякими краями, а картинка втричі ширша за плашку: на початку й
+   у кінці циклу хвиля цілком за межами плашки. Тому новий цикл починається
+   непомітно — без ривка назад, — а ease-in-out плавно розганяє й гальмує її
+   саме там, де її не видно. */
+@utility skeleton {
+	background-color: var(--skeleton);
+	background-image: linear-gradient(
+		90deg,
+		transparent 30%,
+		color-mix(in srgb, var(--skeleton-shine) 55%, transparent) 42%,
+		var(--skeleton-shine) 50%,
+		color-mix(in srgb, var(--skeleton-shine) 55%, transparent) 58%,
+		transparent 70%
+	);
+	background-size: 300% 100%;
+	background-repeat: no-repeat;
+	animation: skeleton-shine 1.8s ease-in-out infinite;
+
+	@media (prefers-reduced-motion: reduce) {
+		animation: none;
+	}
+}
+
+@keyframes skeleton-shine {
+	from {
+		background-position: 110% 0;
+	}
+	to {
+		background-position: -10% 0;
+	}
+}
+
+@utility scrollbar-none {
+	scrollbar-width: none;
+
+	&::-webkit-scrollbar {
+		display: none;
+	}
 }
 
 @utility tabular {
 	font-variant-numeric: tabular-nums;
+}
+
+/* Подпись-«статус»: верхний регистр с разрядкой */
+@utility eyebrow {
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
 }

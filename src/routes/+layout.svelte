@@ -1,113 +1,100 @@
 <script lang="ts">
 	import '../app.css';
 	import favicon from '$lib/assets/favicon.svg';
-	import { page } from '$app/state';
-	import { Toaster } from '$lib/components/ui/sonner';
-	import NotebookPen from '@lucide/svelte/icons/notebook-pen';
-	import Dumbbell from '@lucide/svelte/icons/dumbbell';
-	import ChartLine from '@lucide/svelte/icons/chart-line';
-	import TrendingUp from '@lucide/svelte/icons/trending-up';
-	import Gavel from '@lucide/svelte/icons/gavel';
-	import Settings from '@lucide/svelte/icons/settings';
-	import LogOut from '@lucide/svelte/icons/log-out';
+	import { ModeWatcher } from 'mode-watcher';
+	import { navigating, page } from '$app/state';
+	import Toaster from '$lib/components/toaster/toaster.svelte';
+	import AppRail from '$lib/components/app-rail.svelte';
+	import NavProgress from '$lib/components/nav-progress.svelte';
+	import TxDialog from '$lib/components/tx-dialog.svelte';
+	import { provideTxDialog } from '$lib/tx-dialog.svelte';
+	import { accentCookie, accentCss, provideAccent } from '$lib/accent';
+	import Plus from '@lucide/svelte/icons/plus';
 
 	let { children, data } = $props();
 
-	const nav = [
-		{ href: '/today', label: 'Дневник', icon: NotebookPen },
-		{ href: '/workout', label: 'Тренировка', icon: Dumbbell },
-		{ href: '/dashboard', label: 'Дашборд', icon: ChartLine },
-		{ href: '/progress', label: 'Прогресс', icon: TrendingUp },
-		{ href: '/verdict', label: 'Вердикт', icon: Gavel }
-	];
+	const txDialog = provideTxDialog(() => ({
+		tz: data.tz,
+		defaultAccountId: (data.accounts.find((a) => a.isDefault) ?? data.accounts[0])?.id
+	}));
 
-	const isActive = (href: string) => page.url.pathname.startsWith(href);
+	/** Страницы-формы — по центру, 1010 px. Остальные (списки, карточки, графики) —
+	 *  на всю ширину панели, с узкими отступами, как таблицы в ClickUp. */
+	const CENTERED = ['/settings'];
+	/** Страницы с карточками — на чёрной подложке в тёмной теме, чтобы карточки
+	 *  #111 читались контрастно. */
+	const CANVAS = ['/', '/reports', '/accounts'];
+
+	// Пока грузится следующая страница, отступы уже как у неё — без прыжка.
+	const shownPath = $derived(navigating.to?.url.pathname ?? page.url.pathname);
+	const centered = $derived(CENTERED.some((p) => shownPath === p || shownPath.startsWith(`${p}/`)));
+	const canvas = $derived(CANVAS.includes(shownPath));
+
+	// Цвет темы: из cookie (сервер), а после выбора в настройках — сразу тут,
+	// без перезагрузки.
+	let picked = $state<string | null>(null);
+	const accent = $derived(picked ?? data.accent);
+	const accentStyle = $derived(`<style>${accentCss(accent)}</style>`);
+
+	provideAccent({
+		get current() {
+			return accent;
+		},
+		set(id) {
+			picked = id;
+			if (data.user) {
+				document.cookie = `${accentCookie(data.user.id)}=${id}; path=/; max-age=31536000; samesite=lax`;
+			}
+		}
+	});
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head>
+	<link rel="icon" href={favicon} />
+	<!-- Переменные цвета темы. Содержимое — только из фиксированного списка
+	     ACCENTS, ввод пользователя сюда не попадает. -->
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html accentStyle}
+</svelte:head>
 
-<Toaster position="top-center" richColors />
+<ModeWatcher defaultMode="system" />
+<NavProgress />
 
 {#if data.user}
-	<div class="min-h-svh pb-20 md:pb-0">
-		<header class="border-border/60 bg-background/70 sticky top-0 z-30 border-b backdrop-blur-xl">
-			<div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-				<a href="/today" class="flex items-center gap-2">
-					<span class="bg-primary neon-ring size-2.5 rounded-full"></span>
-					<span class="neon-text text-sm font-semibold tracking-[0.2em] uppercase">Gymtrack</span>
-				</a>
+	<!-- Оболочка как в ClickUp: серое полотно, на нём колонка разделов и белая
+	     рабочая панель. Шапки нет — 6 px от краёв окна и между колонкой и панелью. -->
+	<div class="flex h-svh gap-1.5 bg-shell p-1.5 max-md:pb-19">
+		<div class="hidden md:block"><AppRail /></div>
 
-				{#if data.deload}
-					<span
-						class="ml-1 rounded-full border px-2 py-0.5 text-[11px] tabular
-							{data.deload.isDeloadWeek
-							? 'border-signal-yellow/50 text-signal-yellow bg-signal-yellow/10'
-							: 'border-border text-muted-foreground'}"
-					>
-						{#if data.deload.isDeloadWeek}
-							Неделя {data.deload.weekIndex} · разгрузка
-						{:else}
-							Неделя {data.deload.weekIndex}
-						{/if}
-					</span>
-				{/if}
-
-				<nav class="ml-auto hidden items-center gap-1 md:flex">
-					{#each nav as item (item.href)}
-						<a
-							href={item.href}
-							class="rounded-md px-3 py-1.5 text-sm transition-colors
-								{isActive(item.href)
-								? 'bg-primary/10 text-primary'
-								: 'text-muted-foreground hover:text-foreground'}"
-						>
-							{item.label}
-						</a>
-					{/each}
-				</nav>
-
-				<div class="ml-auto flex items-center gap-1 md:ml-2">
-					<a
-						href="/settings"
-						class="text-muted-foreground hover:text-foreground rounded-md p-2 transition-colors"
-						aria-label="Настройки"
-					>
-						<Settings class="size-4" />
-					</a>
-					<form method="POST" action="/logout">
-						<button
-							class="text-muted-foreground hover:text-foreground rounded-md p-2 transition-colors"
-							aria-label="Выйти"
-						>
-							<LogOut class="size-4" />
-						</button>
-					</form>
-				</div>
-			</div>
-		</header>
-
-		<main class="mx-auto max-w-5xl px-4 py-6">
-			{@render children()}
-		</main>
-
-		<nav
-			class="border-border/60 bg-background/85 fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur-xl md:hidden"
+		<div
+			class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-border bg-panel"
 		>
-			<div class="mx-auto grid max-w-5xl grid-cols-5">
-				{#each nav as item (item.href)}
-					{@const Icon = item.icon}
-					<a
-						href={item.href}
-						class="flex flex-col items-center gap-1 py-2.5 text-[11px] transition-colors
-							{isActive(item.href) ? 'text-primary' : 'text-muted-foreground'}"
-					>
-						<Icon class="size-5" />
-						{item.label}
-					</a>
-				{/each}
-			</div>
-		</nav>
+			<main
+				class="min-h-0 flex-1 overflow-auto {centered
+					? 'p-4 md:p-6'
+					: 'pt-2 pr-2 pb-2 pl-3'} {canvas ? 'bg-canvas' : ''}"
+			>
+				<div class="w-full {centered ? 'mx-auto max-w-252.5' : ''}">
+					{@render children()}
+				</div>
+			</main>
+		</div>
 	</div>
+
+	<!-- телефон: навигация снизу и кнопка быстрого добавления -->
+	<div class="md:hidden"><AppRail variant="bottom" /></div>
+	<button
+		class="fixed right-4 bottom-22 z-40 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg md:hidden"
+		aria-label="Добавить операцию"
+		onclick={() => txDialog.show()}
+	>
+		<Plus class="size-6" />
+	</button>
+
+	<TxDialog categories={data.categories} accounts={data.accounts} />
+	<!-- Тосты — в левом нижнем углу рабочей панели (колонка 52 px + отступы). -->
+	<Toaster class="bottom-21 left-3 md:bottom-4.5 md:left-19" />
 {:else}
 	{@render children()}
+	<Toaster class="bottom-4 left-4" />
 {/if}
