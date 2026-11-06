@@ -85,3 +85,26 @@ export function learnableWord(note: string | null, categories: Matchable[]): str
 	if (!word) return null;
 	return categories.some((c) => bestScore(word, c) > 0) ? null : word;
 }
+
+/**
+ * Убирает из комментария слова, которые просто повторяют название категории:
+ * «продукты атб» в категории «Продукты» → «атб», «продукти» → «». Остальные
+ * слова остаются, даже ключевые: «кофе», «такси», «атб» говорят, что именно
+ * купили, а название категории и так видно рядом.
+ */
+export function dropNameWords(note: string, categoryName: string): string {
+	const names = tokens(categoryName).filter((w) => w.length >= 4);
+	if (!note || names.length === 0) return note;
+	// основа слова: «продукты» → «продук» (ловит «продукти», «продуктов»), «кафе» → «кафе»
+	const stems = names.map((n) => ({
+		n,
+		stem: n.length >= 7 ? n.slice(0, -2) : n.length >= 5 ? n.slice(0, -1) : n
+	}));
+	return note
+		.split(/\s+/)
+		.filter((word) => {
+			const t = normalize(word).replace(/[^\p{L}\p{N}]/gu, '');
+			return !stems.some(({ n, stem }) => t.startsWith(stem) && t.length <= n.length + 2);
+		})
+		.join(' ');
+}

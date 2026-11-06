@@ -93,7 +93,7 @@
 	<div
 		class="flex flex-wrap items-center gap-4 rounded-[12px] bg-[linear-gradient(#1d1d20_24%,#0b0b0c)] px-5 py-5 text-white"
 	>
-		<Mascot size={56} mood="wink" tone="light" />
+		<Mascot size={56} />
 		<div>
 			<p class="eyebrow text-white/60">Всего на активных счетах</p>
 			<p class="mt-1 font-display text-4xl font-semibold tracking-[-0.04em] tabular">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { learnableWord, matchCategory, normalize, tokens } from './categorize';
+import { dropNameWords, learnableWord, matchCategory, normalize, tokens } from './categorize';
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from './defaults';
 
 const expense = DEFAULT_EXPENSE_CATEGORIES.map((c, i) => ({ id: `e${i}`, ...c }));
@@ -85,5 +85,37 @@ describe('learnableWord', () => {
 		expect(learnableWord('2 чебурека', expense)).toBe('чебурека');
 		expect(learnableWord('по 50', expense)).toBeNull();
 		expect(learnableWord(null, expense)).toBeNull();
+	});
+});
+
+describe('dropNameWords — название категории не дублируется в описании', () => {
+	it.each([
+		['продукты атб', 'Продукты', 'атб'],
+		['Продукты АТБ', 'Продукты', 'АТБ'],
+		['продукти', 'Продукты', ''],
+		['продуктов, хлеб', 'Продукты', 'хлеб'],
+		['кафе латте', 'Кафе и рестораны', 'латте'],
+		['ужин в ресторане', 'Кафе и рестораны', 'ужин в'],
+		['мобильная связь киевстар', 'Мобильная связь', 'киевстар'],
+		['зарплата за октябрь', 'Зарплата', 'за октябрь'],
+		['зарплату аванс', 'Зарплата', 'аванс'],
+		['продуктовый набор подарок', 'Подарки', 'продуктовый набор']
+	])('«%s» в «%s» → «%s»', (note, name, expected) => {
+		expect(dropNameWords(note, name)).toBe(expected);
+	});
+
+	it.each([
+		// ключевые слова и похожие, но другие слова остаются
+		['кава', 'Кафе и рестораны'],
+		['такси домой', 'Транспорт'],
+		['автобус', 'Авто'],
+		['автомобиль', 'Авто']
+	])('«%s» в «%s» — без изменений', (note, name) => {
+		expect(dropNameWords(note, name)).toBe(note);
+	});
+
+	it('пустое описание и короткое название — как есть', () => {
+		expect(dropNameWords('', 'Продукты')).toBe('');
+		expect(dropNameWords('ТВ приставка', 'ТВ')).toBe('ТВ приставка');
 	});
 });

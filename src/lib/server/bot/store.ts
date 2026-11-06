@@ -50,6 +50,8 @@ export type Link = {
 	userId: string;
 	tz: string;
 	pendingCategoryId: string | null;
+	/** правим запись: «a:<id записи>:<id сообщения>» — ждём сумму, «n:…» — описание */
+	pendingEdit: string | null;
 	pendingAt: Date | null;
 };
 
@@ -68,6 +70,8 @@ export type TxPatch = Partial<{
 	categoryId: string | null;
 	accountId: string;
 	occurredAt: Date;
+	amount: number;
+	note: string | null;
 }>;
 
 export interface BotStore {
@@ -83,7 +87,10 @@ export interface BotStore {
 		telegramId: bigint,
 		profile: { username: string | null; firstName: string | null }
 	): Promise<{ others: bigint[] } | null>;
+	/** Ждём сумму для выбранной категории; null — ничего не ждём (сбрасывает и правку). */
 	setPending(telegramId: bigint, categoryId: string | null): Promise<void>;
+	/** Ждём новую сумму или описание записи; null — ничего не ждём (сбрасывает и категорию). */
+	setPendingEdit(telegramId: bigint, edit: string | null): Promise<void>;
 
 	/** Активные категории в порядке из CRM; withArchived — и архивные (для отчётов). */
 	categories(userId: string, withArchived?: boolean): Promise<Category[]>;
@@ -113,6 +120,15 @@ export interface BotStore {
 /** Слово, которое запоминаем за категорией вместе со сменой категории. */
 export type LearnWord = { categoryId: string; word: string };
 
+/** Ждём что-то одно: сумму для категории или правку записи. */
+export function pendingFields(categoryId: string | null, edit: string | null) {
+	return {
+		pendingCategoryId: categoryId,
+		pendingEdit: categoryId ? null : edit,
+		pendingAt: categoryId || edit ? new Date() : null
+	};
+}
+
 /** Сколько помним привязку Telegram → пользователь. */
 export const LINK_CACHE_MS = 60_000;
 
@@ -141,10 +157,12 @@ export function withLinkCache(store: BotStore, ttlMs = LINK_CACHE_MS): BotStore 
 		async setPending(telegramId, categoryId) {
 			await store.setPending(telegramId, categoryId);
 			const hit = cache.get(telegramId);
-			if (hit) {
-				hit.link.pendingCategoryId = categoryId;
-				hit.link.pendingAt = categoryId ? new Date() : null;
-			}
+			if (hit) Object.assign(hit.link, pendingFields(categoryId, null));
+		},
+		async setPendingEdit(telegramId, edit) {
+			await store.setPendingEdit(telegramId, edit);
+			const hit = cache.get(telegramId);
+			if (hit) Object.assign(hit.link, pendingFields(null, edit));
 		}
 	};
 }
@@ -196,6 +214,7 @@ export function prismaStore(db: PrismaClient): BotStore {
 					telegramId: true,
 					userId: true,
 					pendingCategoryId: true,
+					pendingEdit: true,
 					pendingAt: true,
 					user: { select: { timezone: true, initializedAt: true } }
 				}
@@ -207,6 +226,7 @@ export function prismaStore(db: PrismaClient): BotStore {
 				userId: link.userId,
 				tz: link.user.timezone,
 				pendingCategoryId: link.pendingCategoryId,
+				pendingEdit: link.pendingEdit,
 				pendingAt: link.pendingAt
 			};
 		},
@@ -218,7 +238,7 @@ export function prismaStore(db: PrismaClient): BotStore {
 				db.telegramLink.upsert({
 					where: { telegramId },
 					create: { telegramId, userId: row.userId, ...profile },
-					update: { userId: row.userId, ...profile, pendingCategoryId: null, pendingAt: null }
+					update: { userId: row.userId, ...profile, ...pendingFields(null, null) }
 				}),
 				db.telegramLinkCode.delete({ where: { code } }),
 				db.telegramLink.findMany({
@@ -233,8 +253,12 @@ export function prismaStore(db: PrismaClient): BotStore {
 		async setPending(telegramId, categoryId) {
 			await db.telegramLink.update({
 				where: { telegramId },
-				data: { pendingCategoryId: categoryId, pendingAt: categoryId ? new Date() : null }
+				data: pendingFields(categoryId, null)
 			});
+		},
+
+		async setPendingEdit(telegramId, edit) {
+			await db.telegramLink.update({ where: { telegramId }, data: pendingFields(null, edit) });
 		},
 
 		categories: (userId, withArchived = false) =>

@@ -145,6 +145,9 @@ model TelegramLink {
   firstName         String?
   /// Выбрали категорию кнопкой и ждём сумму следующим сообщением
   pendingCategoryId String?
+  /// Правим запись: ждём новую сумму («a:<id записи>:<id сообщения>») или описание («n:…»)
+  pendingEdit       String?
+  /// Когда начали ждать (категорию или правку) — ожидание живёт 15 минут
   pendingAt         DateTime?
   createdAt         DateTime  @default(now())
 

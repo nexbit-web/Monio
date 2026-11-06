@@ -76,7 +76,7 @@
 				aria-label="Monio — обзор"
 				class="mt-0.5 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-white/40"
 			>
-				<Mascot size={30} tone="light" />
+				<Mascot size={34} />
 			</a>
 
 			<Tooltip.Root>

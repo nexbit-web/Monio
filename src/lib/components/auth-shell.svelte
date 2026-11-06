@@ -17,7 +17,7 @@
 		<Card.Root>
 			<Card.Header>
 				<div class="mb-1 flex items-center gap-2.5">
-					<Mascot size={36} mood="wink" />
+					<Mascot size={40} />
 					<span class="text-2xl font-semibold tracking-tight">Monio</span>
 				</div>
 				<Card.Title>{title}</Card.Title>

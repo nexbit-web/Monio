@@ -61,6 +61,8 @@ export type CardExtra = {
 	monthKey?: string;
 	/** просим выбрать категорию — с подсказкой, какое слово запомним */
 	ask?: { hint: string | null; change: boolean };
+	/** строка под карточкой: «Що змінити?», «Надішли нову суму…» (HTML) */
+	footer?: string;
 };
 
 export function cardText(tx: Tx, tz: string, extra: CardExtra = {}): string {
@@ -96,6 +98,7 @@ export function cardText(tx: Tx, tz: string, extra: CardExtra = {}): string {
 				: `👇 Обери категорію${hint ? ` — і я запам'ятаю слово «${esc(hint)}»` : ''}`
 		);
 	}
+	if (extra.footer) lines.push('', extra.footer);
 	return lines.join('\n');
 }
 
@@ -297,8 +300,9 @@ export const HELP = [
 	'<b>Кнопки внизу</b>',
 	`«${expense.label}» / «${income.label}» — обрати категорію й написати суму.`,
 	`«${commands.label}» — усе інше: історія, скасування, категорії.`,
+	'Зникли кнопки — напиши <code>меню</code>, і я їх поверну.',
 	'',
-	'Під кожним записом: змінити категорію чи рахунок, перенести на день раніше, видалити.'
+	'Під кожним записом: змінити категорію чи рахунок, «✏️ Змінити» — суму, опис або дату, видалити.'
 ].join('\n');
 
 export function commandsText(): string {
@@ -359,7 +363,20 @@ export const T = {
 	otherCategory: '‹ Інша категорія',
 	back: '‹ Назад',
 	remove: '✕ Видалити',
+	edit: '✏️ Змінити',
+	editWhat: '✏️ <b>Що змінити?</b>',
+	editAmount: '💰 Сума',
+	editNote: '📝 Опис',
 	dayEarlier: '⏪ −1 день',
+	dayLater: '+1 день ⏩',
+	clearNote: '🧹 Прибрати опис',
+	askAmount: '💰 Надішли нову суму, наприклад: <code>320</code>',
+	askNote: '📝 Надішли новий опис — я заміню ним старий',
+	notAmount:
+		'🤔 Не бачу суми. Надішли тільки число, наприклад <code>320</code>, або натисни «‹ Назад» під записом.',
+	amountChanged: (amount: string) => `✅ Сума тепер <b>${amount}</b>`,
+	noteChanged: (note: string) => `✅ Опис тепер: «${esc(note)}»`,
+	noteCleared: 'Опис прибрано',
 	toIncome: '↔️ Це дохід',
 	toExpense: '↔️ Це витрата',
 	category: '🏷 Категорія',
@@ -367,6 +384,7 @@ export const T = {
 	nowIncome: 'Тепер це дохід',
 	nowExpense: 'Тепер це витрата',
 	movedEarlier: 'Переніс на день раніше',
+	movedLater: 'Переніс на день пізніше',
 	deleted: 'Видалено',
 	alreadyDeleted: 'Уже видалено',
 	categoryGone: 'Категорію не знайдено — обери заново',

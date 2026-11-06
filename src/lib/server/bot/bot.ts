@@ -23,7 +23,7 @@ import {
 	zonedParts
 } from '../../date.ts';
 import { formatDayShort, monthName } from './dates.ts';
-import { learnableWord, matchCategory } from '../finance/categorize.ts';
+import { dropNameWords, learnableWord, matchCategory } from '../finance/categorize.ts';
 import { extractAccount, parseEntry } from './parse.ts';
 import {
 	FAILED,
@@ -51,17 +51,20 @@ import {
 	monthText,
 	newLinkAlert,
 	plainIconed,
+	signed,
 	type CardExtra
 } from './render.ts';
 import { autoRetry } from './retry.ts';
 import {
+	pendingFields,
 	withLinkCache,
 	type Account,
 	type BotStore,
 	type Category,
 	type Kind,
 	type Link,
-	type Tx
+	type Tx,
+	type TxPatch
 } from './store.ts';
 import {
 	ACTIONS,
@@ -83,8 +86,20 @@ export type BotOptions = {
 	botInfo?: UserFromGetMe;
 };
 
-/** Сколько ждём сумму после выбора категории кнопкой. */
+/** Сколько ждём сумму после выбора категории кнопкой — или новую сумму/описание при правке. */
 export const PENDING_TTL_MS = 15 * 60_000;
+
+/** Как в CRM: длиннее описание не сохраняем. */
+const MAX_NOTE = 500;
+
+/** Правка записи: ждём новую сумму (a) или описание (n) для записи txId в сообщении messageId. */
+type PendingEdit = { field: 'a' | 'n'; txId: string; messageId: number };
+
+/**
+ * Режим карточки: просмотр, выбор категории, меню правки («Що змінити?»),
+ * ждём новую сумму, ждём новое описание.
+ */
+type CardMode = 'view' | 'categories' | 'edit' | 'amount' | 'note';
 
 const kindCode = (kind: Kind) => (kind === 'EXPENSE' ? 'E' : 'I');
 
@@ -171,13 +186,34 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		return Date.now() - pendingAt.getTime() < PENDING_TTL_MS ? pendingCategoryId : null;
 	}
 
+	/** Правка, которую ждём, — если её начали недавно. */
+	function pendingEdit(ctx: BotContext): PendingEdit | null {
+		const { pendingEdit, pendingAt } = me(ctx);
+		if (!pendingEdit || !pendingAt || Date.now() - pendingAt.getTime() >= PENDING_TTL_MS)
+			return null;
+		const m = /^([an]):(\w+):(\d+)$/.exec(pendingEdit);
+		return m ? { field: m[1] as 'a' | 'n', txId: m[2], messageId: Number(m[3]) } : null;
+	}
+
+	async function setPendingEdit(ctx: BotContext, edit: string) {
+		const link = me(ctx);
+		await store.setPendingEdit(link.telegramId, edit);
+		Object.assign(link, pendingFields(null, edit));
+	}
+
 	async function clearPending(ctx: BotContext) {
 		const link = me(ctx);
-		if (!link.pendingCategoryId) return;
+		if (!link.pendingCategoryId && !link.pendingEdit) return;
 		await store.setPending(link.telegramId, null);
-		link.pendingCategoryId = null;
-		link.pendingAt = null;
+		Object.assign(link, pendingFields(null, null));
 	}
+
+	// Нажал другую кнопку — правку, которую ждали, отменяем: иначе следующая
+	// запись («250 кава») молча поменяла бы старую.
+	bot.on('callback_query:data', async (ctx, next) => {
+		if (me(ctx).pendingEdit && !/^e[an]:/.test(ctx.callbackQuery.data)) await clearPending(ctx);
+		await next();
+	});
 
 	// ── Кнопки внизу и команды ──────────────────────────────────────────
 
@@ -210,6 +246,11 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const text = ctx.message.text;
 		if (text.startsWith('/')) return next();
 		const id = matchButton(text);
+		// Ждём новое описание — им может быть и слово «історія». Кнопкой считаем
+		// только нажатую надпись клавиатуры, она правку отменяет.
+		const editing = pendingEdit(ctx);
+		const keyPressed = !!id && (text.trim() === ACTIONS[id].label || isOldLabel(text));
+		if (editing && !keyPressed) return applyEdit(ctx, editing, text);
 		if (id) return runAction(ctx, id, isOldLabel(text));
 		await record(ctx, text);
 	});
@@ -220,7 +261,8 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		const { userId, tz, telegramId } = me(ctx);
 		const entry = parseEntry(text);
 		if (!entry) {
-			await ctx.reply(NO_AMOUNT, { parse_mode: 'HTML' });
+			// человек, похоже, потерялся — заодно вернём кнопки, если их стёрли
+			await ctx.reply(NO_AMOUNT, { parse_mode: 'HTML', reply_markup: mainKeyboard });
 			return;
 		}
 
@@ -232,7 +274,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			store.spentByCategory(userId, monthRange(month, tz))
 		]);
 		if (accounts.length === 0) {
-			await ctx.reply(NO_ACCOUNTS);
+			await ctx.reply(NO_ACCOUNTS, { reply_markup: mainKeyboard });
 			return;
 		}
 
@@ -253,6 +295,9 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			}
 		}
 
+		// «продукти атб» в «Продуктах» → описание «атб»: название категории и так видно рядом
+		const cleanNote = category ? dropNameWords(note, category.name) : note;
+
 		const [tx] = await Promise.all([
 			store.createTx({
 				userId,
@@ -261,7 +306,7 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 				occurredAt,
 				accountId: account.id,
 				categoryId: category?.id ?? null,
-				note: note || null
+				note: cleanNote || null
 			}),
 			me(ctx).pendingCategoryId ? store.setPending(telegramId, null) : null
 		]);
@@ -335,12 +380,30 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 	function cardKeyboard(
 		tx: Tx,
 		categories: Category[],
-		mode: 'view' | 'categories' = 'view'
+		mode: CardMode = 'view'
 	): InlineKeyboardMarkup {
 		const remove = btn(T.remove, `del:${tx.id}`, 'danger');
-		const earlier = btn(T.dayEarlier, `back:${tx.id}`);
+		const change = btn(T.edit, `ed:${tx.id}`);
+		const back = btn(T.back, `v:${tx.id}`);
 
-		if (tx.type === 'TRANSFER') return inline([[earlier, remove]]);
+		if (mode === 'edit') {
+			const canLater = tx.occurredAt.getTime() + DAY_MS <= Date.now();
+			return inline([
+				[btn(T.editAmount, `ea:${tx.id}`), btn(T.editNote, `en:${tx.id}`)],
+				[
+					btn(T.dayEarlier, `back:${tx.id}`),
+					...(canLater ? [btn(T.dayLater, `fwd:${tx.id}`)] : [])
+				],
+				[back]
+			]);
+		}
+		if (mode === 'amount') return inline([[btn(T.back, `ed:${tx.id}`)]]);
+		if (mode === 'note')
+			return inline([
+				[...(tx.note ? [btn(T.clearNote, `ec:${tx.id}`)] : []), btn(T.back, `ed:${tx.id}`)]
+			]);
+
+		if (tx.type === 'TRANSFER') return inline([[change, remove]]);
 
 		if (mode === 'categories' || !tx.category) {
 			const kind: Kind = tx.type;
@@ -355,18 +418,23 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 						)
 					)
 			);
-			rows.push([
-				btn(kind === 'EXPENSE' ? T.toIncome : T.toExpense, `tt:${tx.id}`),
-				tx.category ? btn(T.back, `v:${tx.id}`) : remove
-			]);
+			const toggle = btn(kind === 'EXPENSE' ? T.toIncome : T.toExpense, `tt:${tx.id}`);
+			if (tx.category) rows.push([toggle, back]);
+			else rows.push([toggle, change], [remove]);
 			return inline(rows);
 		}
 
 		return inline([
 			[btn(T.category, `cats:${tx.id}`), btn(T.account, `accs:${tx.id}`)],
-			[earlier, remove]
+			[change, remove]
 		]);
 	}
+
+	const FOOTERS: Partial<Record<CardMode, string>> = {
+		edit: T.editWhat,
+		amount: T.askAmount,
+		note: T.askNote
+	};
 
 	/** Траты категории за месяц операции — для строки «У листопаді на …». */
 	async function cardExtra(userId: string, tz: string, tx: Tx): Promise<CardExtra> {
@@ -376,9 +444,11 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		return { spent: spent.get(tx.category.id) ?? 0, monthKey };
 	}
 
-	async function showCard(ctx: BotContext, tx: Tx, mode: 'view' | 'categories' = 'view') {
+	/** Показать карточку в режиме mode — в сообщении с кнопкой или в сообщении messageId. */
+	async function showCard(ctx: BotContext, tx: Tx, mode: CardMode = 'view', messageId?: number) {
 		const { userId, tz } = me(ctx);
-		const needCategories = mode === 'categories' || (!tx.category && tx.type !== 'TRANSFER');
+		const needCategories =
+			mode === 'categories' || (mode === 'view' && !tx.category && tx.type !== 'TRANSFER');
 		const [extra, categories] = await Promise.all([
 			cardExtra(userId, tz, tx),
 			needCategories ? store.categories(userId) : ([] as Category[])
@@ -388,7 +458,8 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 				hint: tx.category ? null : learnableWord(tx.note, categories),
 				change: !!tx.category
 			};
-		await edit(ctx, cardText(tx, tz, extra), cardKeyboard(tx, categories, mode));
+		extra.footer = FOOTERS[mode];
+		await edit(ctx, cardText(tx, tz, extra), cardKeyboard(tx, categories, mode), messageId);
 	}
 
 	const NOT_FOUND = T.txGone;
@@ -513,8 +584,103 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			await ctx.answerCallbackQuery({ text: NOT_FOUND });
 			return;
 		}
-		await Promise.all([ctx.answerCallbackQuery({ text: T.movedEarlier }), showCard(ctx, updated)]);
+		await Promise.all([
+			ctx.answerCallbackQuery({ text: T.movedEarlier }),
+			showCard(ctx, updated, 'edit')
+		]);
 	});
+
+	bot.callbackQuery(/^fwd:(\w+)$/, async (ctx) => {
+		const { userId } = me(ctx);
+		const tx = await store.tx(userId, ctx.match[1]);
+		if (!tx) {
+			await ctx.answerCallbackQuery({ text: NOT_FOUND });
+			return;
+		}
+		const later = new Date(tx.occurredAt.getTime() + DAY_MS);
+		if (later.getTime() > Date.now()) {
+			await ctx.answerCallbackQuery({ text: T.futureDay });
+			return;
+		}
+		const updated = await store.updateTx(userId, tx.id, { occurredAt: later });
+		if (!updated) {
+			await ctx.answerCallbackQuery({ text: NOT_FOUND });
+			return;
+		}
+		await Promise.all([
+			ctx.answerCallbackQuery({ text: T.movedLater }),
+			showCard(ctx, updated, 'edit')
+		]);
+	});
+
+	// ── Правка суммы и описания ─────────────────────────────────────────
+
+	bot.callbackQuery(/^ed:(\w+)$/, async (ctx) => {
+		const tx = await store.tx(me(ctx).userId, ctx.match[1]);
+		await ctx.answerCallbackQuery(tx ? undefined : { text: NOT_FOUND });
+		if (tx) await showCard(ctx, tx, 'edit');
+	});
+
+	bot.callbackQuery(/^e([an]):(\w+)$/, async (ctx) => {
+		const [, field, txId] = ctx.match;
+		const tx = await store.tx(me(ctx).userId, txId);
+		if (!tx) {
+			await ctx.answerCallbackQuery({ text: NOT_FOUND });
+			return;
+		}
+		// запомним и сообщение с карточкой — обновим его, когда придёт новое значение
+		const messageId = ctx.callbackQuery.message?.message_id ?? 0;
+		await Promise.all([
+			setPendingEdit(ctx, `${field}:${tx.id}:${messageId}`),
+			ctx.answerCallbackQuery()
+		]);
+		await showCard(ctx, tx, field === 'a' ? 'amount' : 'note');
+	});
+
+	bot.callbackQuery(/^ec:(\w+)$/, async (ctx) => {
+		const updated = await store.updateTx(me(ctx).userId, ctx.match[1], { note: null });
+		if (!updated) {
+			await ctx.answerCallbackQuery({ text: NOT_FOUND });
+			return;
+		}
+		await Promise.all([ctx.answerCallbackQuery({ text: T.noteCleared }), showCard(ctx, updated)]);
+	});
+
+	/** Пришла новая сумма или описание: меняем запись, обновляем карточку, внизу — подтверждение. */
+	async function applyEdit(ctx: BotContext, editing: PendingEdit, text: string) {
+		let patch: TxPatch;
+		if (editing.field === 'a') {
+			const entry = parseEntry(text);
+			if (!entry || entry.note) {
+				await ctx.reply(T.notAmount, { parse_mode: 'HTML' });
+				return;
+			}
+			patch = { amount: entry.amount };
+		} else {
+			patch = { note: text.replace(/\s+/g, ' ').trim().slice(0, MAX_NOTE) };
+		}
+
+		const [updated] = await Promise.all([
+			store.updateTx(me(ctx).userId, editing.txId, patch),
+			clearPending(ctx)
+		]);
+		if (!updated) {
+			await ctx.reply(NOT_FOUND);
+			return;
+		}
+		await showCard(ctx, updated, 'view', editing.messageId);
+		await ctx.reply(
+			editing.field === 'a'
+				? T.amountChanged(signed(updated.type, updated.amount))
+				: T.noteChanged(updated.note ?? ''),
+			{
+				parse_mode: 'HTML',
+				...(editing.messageId > 0 && {
+					reply_parameters: { message_id: editing.messageId, allow_sending_without_reply: true }
+				})
+			}
+		);
+	}
 
 	bot.callbackQuery(/^del:(\w+)$/, async (ctx) => {
 		const tx = await store.deleteTx(me(ctx).userId, ctx.match[1]);
@@ -702,8 +868,12 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 
 	// ── Всё остальное ───────────────────────────────────────────────────
 
-	bot.on('message:text', (ctx) => ctx.reply(UNKNOWN_COMMAND));
-	bot.on('message', (ctx) => ctx.reply(ONLY_TEXT, { parse_mode: 'HTML' }));
+	// Клавиатура в Telegram живёт на сообщении, которое её прислало: удалили его или
+	// очистили историю — кнопки пропали. Ответы «не понял» приносят их обратно.
+	bot.on('message:text', (ctx) => ctx.reply(UNKNOWN_COMMAND, { reply_markup: mainKeyboard }));
+	bot.on('message', (ctx) =>
+		ctx.reply(ONLY_TEXT, { parse_mode: 'HTML', reply_markup: mainKeyboard })
+	);
 	bot.on('callback_query:data', (ctx) => ctx.answerCallbackQuery({ text: T.staleButton }));
 
 	bot.catch((err) => {
@@ -722,12 +892,24 @@ function ignoreNotModified(err: unknown) {
 }
 
 /**
- * Обновить сообщение с кнопкой на месте. Если его уже нельзя править (старше
- * 48 часов или удалено) — пришлём новым сообщением, чтобы нажатие не пропало.
+ * Обновить сообщение на месте: то, под которым нажали кнопку, или messageId
+ * (0 — неизвестно какое, сразу шлём новым). Если его уже нельзя править
+ * (старше 48 часов или удалено) — пришлём новым сообщением, чтобы ничего не пропало.
  */
-async function edit(ctx: Context, text: string, reply_markup?: InlineKeyboardMarkup) {
+async function edit(
+	ctx: Context,
+	text: string,
+	reply_markup?: InlineKeyboardMarkup,
+	messageId?: number
+) {
 	try {
-		await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup });
+		if (messageId === 0) await ctx.reply(text, { parse_mode: 'HTML', reply_markup });
+		else if (messageId)
+			await ctx.api.editMessageText(ctx.chat!.id, messageId, text, {
+				parse_mode: 'HTML',
+				reply_markup
+			});
+		else await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup });
 	} catch (err) {
 		if (!(err instanceof GrammyError)) throw err;
 		if (err.description.includes('message is not modified')) return;

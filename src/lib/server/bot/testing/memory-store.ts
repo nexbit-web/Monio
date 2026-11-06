@@ -9,6 +9,7 @@ import {
 	DEFAULT_EXPENSE_CATEGORIES,
 	DEFAULT_INCOME_CATEGORIES
 } from '../../finance/defaults.ts';
+import { pendingFields } from '../store.ts';
 import type {
 	Account,
 	AccountType,
@@ -31,6 +32,7 @@ type LinkRow = {
 	username: string | null;
 	firstName: string | null;
 	pendingCategoryId: string | null;
+	pendingEdit: string | null;
 	pendingAt: Date | null;
 };
 type CategoryRow = Category & { userId: string; archived: boolean; sortOrder: number; seq: number };
@@ -175,6 +177,7 @@ export function memoryStore() {
 				userId: link.userId,
 				tz: users.get(link.userId)!.tz,
 				pendingCategoryId: link.pendingCategoryId,
+				pendingEdit: link.pendingEdit,
 				pendingAt: link.pendingAt
 			};
 		}),
@@ -195,8 +198,7 @@ export function memoryStore() {
 					telegramId,
 					userId: row.userId,
 					...profile,
-					pendingCategoryId: null,
-					pendingAt: null
+					...pendingFields(null, null)
 				});
 				codes.delete(code);
 				initialize(row.userId);
@@ -207,8 +209,13 @@ export function memoryStore() {
 		setPending: track('setPending', (telegramId: bigint, categoryId: string | null) => {
 			const link = links.get(telegramId);
 			if (!link) throw new Error('нет привязки');
-			link.pendingCategoryId = categoryId;
-			link.pendingAt = categoryId ? new Date() : null;
+			Object.assign(link, pendingFields(categoryId, null));
+		}),
+
+		setPendingEdit: track('setPendingEdit', (telegramId: bigint, edit: string | null) => {
+			const link = links.get(telegramId);
+			if (!link) throw new Error('нет привязки');
+			Object.assign(link, pendingFields(null, edit));
 		}),
 
 		categories: track('categories', (userId: string, withArchived = false) =>
@@ -342,8 +349,7 @@ export function memoryStore() {
 			userId,
 			username: null,
 			firstName: null,
-			pendingCategoryId: null,
-			pendingAt: null
+			...pendingFields(null, null)
 		});
 	}
 

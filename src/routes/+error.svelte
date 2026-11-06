@@ -10,7 +10,7 @@
 
 <div class="grid min-h-[60svh] place-items-center px-4 text-center">
 	<div class="flex max-w-sm flex-col items-center">
-		<Mascot size={88} mood="wow" />
+		<Mascot size={88} />
 		<p class="mt-4 font-display text-5xl font-semibold tracking-[-0.04em] tabular">{page.status}</p>
 		<p class="mt-2 font-display text-lg font-semibold">
 			{notFound ? 'Такой страницы нет' : 'Что-то пошло не так'}
