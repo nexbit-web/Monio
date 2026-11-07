@@ -1,0 +1,134 @@
+/*
+ * Текст справки (/help). Всё через :where(), чтобы у правил не было веса:
+ * собственные стили блоков (таблицы, чат, шаги) всегда важнее этих.
+ */
+:where(.help-doc) {
+	font-size: 15px;
+	line-height: 1.65;
+}
+:where(.help-doc) h3 {
+	margin: 36px 0 8px;
+	font-size: 17px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+}
+:where(.help-doc) p,
+:where(.help-doc) ul,
+:where(.help-doc) ol {
+	margin: 12px 0;
+}
+:where(.help-doc) ul,
+:where(.help-doc) ol {
+	padding-left: 22px;
+}
+:where(.help-doc) ul {
+	list-style: disc;
+}
+:where(.help-doc) ol {
+	list-style: decimal;
+}
+:where(.help-doc) li {
+	margin: 6px 0;
+}
+:where(.help-doc) li::marker {
+	color: var(--muted-foreground);
+}
+:where(.help-doc) a:not([class]) {
+	color: var(--link);
+}
+:where(.help-doc) a:not([class]):hover {
+	text-decoration: underline;
+}
+:where(.help-doc) code {
+	font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+	font-size: 0.87em;
+	background: var(--muted);
+	border-radius: 5px;
+	padding: 1px 5px;
+}
+/* кнопка бота или сайта — плашкой, как клавиша */
+:where(.help-doc) .key {
+	display: inline-block;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: var(--card);
+	padding: 0 6px;
+	font-size: 0.88em;
+	line-height: 1.7;
+	white-space: nowrap;
+}
+/* подписи к картинке чата: номера — как на кнопках в картинке */
+:where(.help-doc) ol.legend {
+	display: grid;
+	gap: 10px;
+	padding: 0;
+	list-style: none;
+	counter-reset: legend;
+}
+:where(.help-doc) ol.legend > li {
+	position: relative;
+	margin: 0;
+	padding-left: 30px;
+	counter-increment: legend;
+}
+:where(.help-doc) ol.legend > li::before {
+	content: counter(legend);
+	position: absolute;
+	left: 0;
+	top: 3px;
+	display: grid;
+	place-items: center;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+	background: var(--foreground);
+	color: var(--background);
+	font-size: 11px;
+	font-weight: 700;
+}
+/* простая таблица в тексте (разделы сайта) */
+:where(.help-doc) .doc-table {
+	margin: 20px 0;
+	overflow-x: auto;
+	border: 1px solid var(--border);
+	border-radius: 12px;
+}
+:where(.help-doc) .doc-table table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+:where(.help-doc) .doc-table th {
+	padding: 9px 14px;
+	text-align: left;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--muted-foreground);
+	background: var(--table-head);
+	border-bottom: 1px solid var(--border);
+}
+:where(.help-doc) .doc-table td {
+	padding: 10px 14px;
+	border-top: 1px solid var(--border);
+	vertical-align: top;
+}
+:where(.help-doc) .doc-table tr:first-child td {
+	border-top: 0;
+}
+:where(.help-doc) .doc-table td:first-child {
+	width: 1%;
+	white-space: nowrap;
+	font-weight: 500;
+}
+:where(.help-doc) .muted {
+	color: var(--muted-foreground);
+}
+:where(.help-doc) .navcell {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+}
+:where(.help-doc) .faqs {
+	margin-top: 16px;
+	border-top: 1px solid var(--border);
+}

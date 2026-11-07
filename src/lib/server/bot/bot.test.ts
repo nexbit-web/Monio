@@ -534,6 +534,80 @@ describe('кнопки под записью', () => {
 	});
 });
 
+describe('товары из словаря — без слов-подсказок', () => {
+	it.each([
+		['яблоки 45', 'Продукты', 'яблоки'],
+		['45 яблука', 'Продукты', 'яблука'],
+		['хліб 25', 'Продукты', 'хліб'],
+		['булочка 18', 'Продукты', 'булочка'],
+		['чай 30', 'Кафе и рестораны', 'чай'],
+		['шкарпетки 150', 'Одежда и обувь', 'шкарпетки'],
+		['куртка 2400', 'Одежда и обувь', 'куртка'],
+		['порошок 200', 'Дом и быт', 'порошок'],
+		['атб порошок 200', 'Дом и быт', 'атб порошок']
+	])('«%s» → %s', async (text, category, note) => {
+		await t.send(text);
+		expect(t.lastTx()).toMatchObject({ type: 'EXPENSE', categoryId: t.cat(category).id, note });
+		expect(t.tg.lastText()).not.toContain('Обери категорію');
+	});
+
+	it('«продал куртку 2000» — доход: «продал» сильнее товара', async () => {
+		await t.send('продал куртку 2000');
+		expect(t.lastTx()).toMatchObject({ type: 'INCOME', categoryId: t.cat('Продажа').id });
+	});
+
+	it('«-450 куртка» — явный минус, расход', async () => {
+		await t.send('-450 куртка');
+		expect(t.lastTx()).toMatchObject({ type: 'EXPENSE', categoryId: t.cat('Одежда и обувь').id });
+	});
+
+	it('поправил категорию — бот запомнил слово, и оно важнее словаря', async () => {
+		await t.send('чай 30');
+		const tx = t.lastTx();
+		expect(tx.categoryId).toBe(t.cat('Кафе и рестораны').id);
+
+		await t.tap(`sc:${tx.id}:${t.cat('Продукты').id}`);
+		expect(t.cat('Продукты').keywords).toContain('чай');
+		expect(t.tg.lastAnswer().text).toBe("Запам'ятав: «чай» → Продукты");
+
+		await t.send('чай 25');
+		expect(t.lastTx().categoryId).toBe(t.cat('Продукты').id);
+	});
+});
+
+describe('кому купил: Семья и Благотворительность', () => {
+	it.each([
+		['сестрі куртка 2000', 'Семья', 'сестрі куртка'],
+		['папе дал денег 500', 'Семья', 'папе дал денег'],
+		['бабусі хліб 30', 'Семья', 'бабусі хліб'],
+		['донат ЗСУ 300', 'Благотворительность', 'донат ЗСУ'],
+		['хлеб для приюта 80', 'Благотворительность', 'хлеб для приюта']
+	])('«%s» → %s', async (text, category, note) => {
+		await t.send(text);
+		expect(t.lastTx()).toMatchObject({ type: 'EXPENSE', categoryId: t.cat(category).id, note });
+	});
+
+	it('«від мами 500» — не расход на маму: бот спрашивает категорию', async () => {
+		await t.send('від мами 500');
+		expect(t.lastTx().categoryId).toBeNull();
+	});
+
+	it('перенёс «маме чебурек» в Кафе — запомнил «чебурек», а не «маме»', async () => {
+		await t.send('маме чебурек 90');
+		const tx = t.lastTx();
+		expect(tx.categoryId).toBe(t.cat('Семья').id);
+
+		await t.tap(`sc:${tx.id}:${t.cat('Кафе и рестораны').id}`);
+		expect(t.cat('Кафе и рестораны').keywords).toContain('чебурек');
+		expect(t.cat('Кафе и рестораны').keywords).not.toContain('маме');
+
+		await t.send('маме чебурек 90');
+		expect(t.lastTx().categoryId).toBe(t.cat('Семья').id);
+		await t.send('чебурек 60');
+		expect(t.lastTx().categoryId).toBe(t.cat('Кафе и рестораны').id);
+	});
+});
+
 describe('описание без названия категории', () => {
 	it.each([
 		['продукты 250 атб', 'Продукты', 'атб'],

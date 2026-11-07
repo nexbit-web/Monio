@@ -6,7 +6,7 @@
  */
 
 export type NavGlyph =
-	'overview' | 'transactions' | 'stats' | 'categories' | 'accounts' | 'settings';
+	'overview' | 'transactions' | 'stats' | 'categories' | 'accounts' | 'help' | 'settings';
 
 export type NavItem = {
 	href: string;
@@ -23,6 +23,8 @@ export const NAV: NavItem[] = [
 	{ href: '/reports', label: 'Аналитика', short: 'Stats', glyph: 'stats' },
 	{ href: '/categories', label: 'Категории', short: 'Tags', glyph: 'categories' },
 	{ href: '/accounts', label: 'Счета', short: 'Wallets', glyph: 'accounts' },
+	// Как пользоваться: CRM, бот и как он выбирает категорию — на трёх языках.
+	{ href: '/help', label: 'Как пользоваться', short: 'Help', glyph: 'help', system: true },
 	// Шапки нет: профиль, тема, Telegram-бот, выход и экспорт — в настройках.
 	{ href: '/settings', label: 'Настройки', short: 'Settings', glyph: 'settings', system: true }
 ];

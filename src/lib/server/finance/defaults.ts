@@ -232,6 +232,10 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 		]
 	},
 	{ icon: 'gifts', name: 'Подарки', keywords: ['подар', 'цвет', 'квит', 'букет'] },
+	// «маме», «брату», «сестрі», «бабусі», «донат», «ЗСУ» — в словаре (goods.json):
+	// там эти слова важнее товара, «сестре куртка» — Семья, а не Одежда
+	{ icon: 'family', name: 'Семья', keywords: [] },
+	{ icon: 'charity', name: 'Благотворительность', keywords: ['благотвор', 'благодийн'] },
 	{
 		icon: 'education',
 		name: 'Образование',

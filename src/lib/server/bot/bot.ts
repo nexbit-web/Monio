@@ -23,7 +23,7 @@ import {
 	zonedParts
 } from '../../date.ts';
 import { formatDayShort, monthName } from './dates.ts';
-import { dropNameWords, learnableWord, matchCategory } from '../finance/categorize.ts';
+import { bestMatch, dropNameWords, learnableWord, matchCategory } from '../finance/categorize.ts';
 import { extractAccount, parseEntry } from './parse.ts';
 import {
 	FAILED,
@@ -288,10 +288,13 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			const expense = categories.filter((c) => c.kind === 'EXPENSE');
 			const income = categories.filter((c) => c.kind === 'INCOME');
 			if (entry.sign === '+') category = matchCategory(note, income);
+			else if (entry.sign === '-') category = matchCategory(note, expense);
 			else {
-				category = matchCategory(note, expense);
-				// «зарплата 30000» без плюса — всё равно доход
-				if (!category && entry.sign === null) category = matchCategory(note, income);
+				// без знака — что сильнее: «зарплата 30000» — доход, «яблоки 45» — расход,
+				// «продал куртку 2000» — доход (слово «продал» сильнее товара «куртка»)
+				const spent = bestMatch(note, expense);
+				const earned = bestMatch(note, income);
+				category = earned.score > spent.score ? earned.category : spent.category;
 			}
 		}
 
