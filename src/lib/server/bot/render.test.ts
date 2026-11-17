@@ -40,7 +40,8 @@ const groceries: Category = {
 	name: 'Продукты',
 	icon: 'groceries',
 	keywords: ['продукт', 'атб'],
-	monthlyBudget: null
+	monthlyBudget: null,
+	essential: true
 };
 const salary: Category = {
 	...groceries,

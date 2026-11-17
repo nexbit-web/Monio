@@ -7,8 +7,18 @@
  * приходил за минимум обращений к базе.
  */
 import type { Prisma, PrismaClient } from '../prisma/client.ts';
+import type { AdvisorSource, MonthCell, UsdRates } from '../../advisor.ts';
 import { initializeUser } from '../finance/defaults.ts';
-import { accountBalances, totalsByCategory, totalsByType, type Range } from '../finance/stats.ts';
+import { usdRates } from '../rates.ts';
+import {
+	accountBalances,
+	cellsByMonth,
+	firstTxAt,
+	savedByMonth,
+	totalsByCategory,
+	totalsByType,
+	type Range
+} from '../finance/stats.ts';
 
 export type { Range };
 
@@ -23,6 +33,8 @@ export type Category = {
 	icon: string;
 	keywords: string[];
 	monthlyBudget: number | null;
+	/** обязательная трата — наставник не предлагает её урезать */
+	essential: boolean;
 };
 
 export type Account = {
@@ -53,7 +65,25 @@ export type Link = {
 	/** правим запись: «a:<id записи>:<id сообщения>» — ждём сумму, «n:…» — описание */
 	pendingEdit: string | null;
 	pendingAt: Date | null;
+	/** присылать ли отчёт в воскресенье */
+	weeklyReport: boolean;
+	/** цель наставника: сколько долларов откладывать в месяц */
+	goalUsd: number;
 };
+
+/** Кому и что из отчётов пора прислать (рассылка по расписанию). */
+export type Recipient = {
+	userId: string;
+	tz: string;
+	telegramIds: bigint[];
+	weeklyReport: boolean;
+	monthlyReport: boolean;
+	lastWeeklyReport: string | null;
+	lastMonthlyReport: string | null;
+	goalUsd: number;
+};
+
+export type ReportKind = 'weekly' | 'monthly';
 
 export type NewTx = {
 	userId: string;
@@ -62,6 +92,15 @@ export type NewTx = {
 	occurredAt: Date;
 	accountId: string;
 	categoryId: string | null;
+	note: string | null;
+};
+
+export type NewTransfer = {
+	userId: string;
+	amount: number;
+	occurredAt: Date;
+	accountId: string;
+	toAccountId: string;
 	note: string | null;
 };
 
@@ -74,7 +113,7 @@ export type TxPatch = Partial<{
 	note: string | null;
 }>;
 
-export interface BotStore {
+export interface BotStore extends AdvisorSource {
 	/** Привязка Telegram → пользователь; заодно создаёт стартовые счета и категории. */
 	link(telegramId: bigint): Promise<Link | null>;
 	/**
@@ -100,6 +139,10 @@ export interface BotStore {
 	addKeyword(userId: string, categoryId: string, word: string): Promise<void>;
 
 	createTx(input: NewTx): Promise<Tx>;
+	/** Перевод между своими счетами — так записываем отложенное («нз 1000»). */
+	createTransfer(input: NewTransfer): Promise<Tx>;
+	/** Счёта «Накопления» нет — заводим его, чтобы было куда откладывать. */
+	addSavingsAccount(userId: string): Promise<Account>;
 	/** null — операции нет или она чужая. */
 	tx(userId: string, id: string): Promise<Tx | null>;
 	updateTx(userId: string, id: string, patch: TxPatch, learn?: LearnWord): Promise<Tx | null>;
@@ -115,6 +158,26 @@ export interface BotStore {
 	/** categoryId → расходы за период; ключ null — без категории. */
 	spentByCategory(userId: string, range: Range): Promise<Map<string | null, number>>;
 	balances(userId: string): Promise<Map<string, number>>;
+	/** Доходы и расходы по месяцам и категориям — для наставника. */
+	monthCells(userId: string, tz: string, range: Range): Promise<MonthCell[]>;
+	/** Отложено по месяцам: переводы на «Накопления» минус обратно. */
+	savedByMonth(userId: string, tz: string, range: Range): Promise<Map<string, number>>;
+	/** Самая ранняя операция — начало учёта. */
+	firstTxAt(userId: string): Promise<Date | null>;
+	/** Курс доллара НБУ (в тестах — постоянный). */
+	usdRates(now: Date): Promise<UsdRates>;
+
+	/** Включить или выключить отчёт по воскресеньям. */
+	setWeeklyReport(userId: string, on: boolean): Promise<void>;
+	/** Пользователи с привязанным Telegram — для рассылки отчётов. */
+	reportRecipients(): Promise<Recipient[]>;
+	/**
+	 * Забронировать отправку отчёта за период key: true, только если его ещё не
+	 * отправляли (last < key). Две рассылки одновременно не пришлют его дважды.
+	 */
+	claimReport(userId: string, kind: ReportKind, key: string): Promise<boolean>;
+	/** Отчёт не ушёл — вернуть прежнюю отметку, чтобы следующая рассылка попробовала снова. */
+	releaseReport(userId: string, kind: ReportKind, key: string, prev: string | null): Promise<void>;
 }
 
 /** Слово, которое запоминаем за категорией вместе со сменой категории. */
@@ -163,6 +226,10 @@ export function withLinkCache(store: BotStore, ttlMs = LINK_CACHE_MS): BotStore 
 			await store.setPendingEdit(telegramId, edit);
 			const hit = cache.get(telegramId);
 			if (hit) Object.assign(hit.link, pendingFields(null, edit));
+		},
+		async setWeeklyReport(userId, on) {
+			await store.setWeeklyReport(userId, on);
+			for (const hit of cache.values()) if (hit.link.userId === userId) hit.link.weeklyReport = on;
 		}
 	};
 }
@@ -177,7 +244,8 @@ const CATEGORY_FIELDS = {
 	name: true,
 	icon: true,
 	keywords: true,
-	monthlyBudget: true
+	monthlyBudget: true,
+	essential: true
 } satisfies Prisma.CategorySelect;
 
 const ACCOUNT_FIELDS = {
@@ -216,7 +284,14 @@ export function prismaStore(db: PrismaClient): BotStore {
 					pendingCategoryId: true,
 					pendingEdit: true,
 					pendingAt: true,
-					user: { select: { timezone: true, initializedAt: true } }
+					user: {
+						select: {
+							timezone: true,
+							initializedAt: true,
+							weeklyReport: true,
+							goalUsd: true
+						}
+					}
 				}
 			});
 			if (!link) return null;
@@ -227,7 +302,9 @@ export function prismaStore(db: PrismaClient): BotStore {
 				tz: link.user.timezone,
 				pendingCategoryId: link.pendingCategoryId,
 				pendingEdit: link.pendingEdit,
-				pendingAt: link.pendingAt
+				pendingAt: link.pendingAt,
+				weeklyReport: link.user.weeklyReport,
+				goalUsd: link.user.goalUsd
 			};
 		},
 
@@ -301,6 +378,20 @@ export function prismaStore(db: PrismaClient): BotStore {
 		createTx: (input) =>
 			db.transaction.create({ data: { ...input, source: 'TELEGRAM' }, select: TX_FIELDS }),
 
+		createTransfer: (input) =>
+			db.transaction.create({
+				data: { ...input, type: 'TRANSFER', categoryId: null, source: 'TELEGRAM' },
+				select: TX_FIELDS
+			}),
+
+		async addSavingsAccount(userId) {
+			const count = await db.account.count({ where: { userId } });
+			return db.account.create({
+				data: { userId, name: 'Накопления', type: 'SAVINGS', icon: 'savings', sortOrder: count },
+				select: ACCOUNT_FIELDS
+			});
+		},
+
 		tx: (userId, id) => db.transaction.findFirst({ where: { id, userId }, select: TX_FIELDS }),
 
 		async updateTx(userId, id, patch, learn) {
@@ -350,6 +441,55 @@ export function prismaStore(db: PrismaClient): BotStore {
 
 		totals: (userId, range) => totalsByType(db, userId, range),
 		spentByCategory: (userId, range) => totalsByCategory(db, userId, range, 'EXPENSE'),
-		balances: (userId) => accountBalances(db, userId)
+		balances: (userId) => accountBalances(db, userId),
+		monthCells: (userId, tz, range) => cellsByMonth(db, userId, tz, range),
+		savedByMonth: (userId, tz, range) => savedByMonth(db, userId, tz, range),
+		firstTxAt: (userId) => firstTxAt(db, userId),
+		usdRates: (now) => usdRates(now),
+
+		async setWeeklyReport(userId, on) {
+			await db.user.update({ where: { id: userId }, data: { weeklyReport: on } });
+		},
+
+		async reportRecipients() {
+			const users = await db.user.findMany({
+				where: { telegramLinks: { some: {} } },
+				select: {
+					id: true,
+					timezone: true,
+					weeklyReport: true,
+					monthlyReport: true,
+					lastWeeklyReport: true,
+					lastMonthlyReport: true,
+					goalUsd: true,
+					telegramLinks: { select: { telegramId: true }, orderBy: { createdAt: 'asc' } }
+				}
+			});
+			return users.map((u) => ({
+				userId: u.id,
+				tz: u.timezone,
+				telegramIds: u.telegramLinks.map((l) => l.telegramId),
+				weeklyReport: u.weeklyReport,
+				monthlyReport: u.monthlyReport,
+				lastWeeklyReport: u.lastWeeklyReport,
+				lastMonthlyReport: u.lastMonthlyReport,
+				goalUsd: u.goalUsd
+			}));
+		},
+
+		async claimReport(userId, kind, key) {
+			const field = kind === 'weekly' ? 'lastWeeklyReport' : 'lastMonthlyReport';
+			// одно условное обновление: из двух одновременных рассылок пройдёт только одна
+			const { count } = await db.user.updateMany({
+				where: { id: userId, OR: [{ [field]: null }, { [field]: { lt: key } }] },
+				data: { [field]: key }
+			});
+			return count === 1;
+		},
+
+		async releaseReport(userId, kind, key, prev) {
+			const field = kind === 'weekly' ? 'lastWeeklyReport' : 'lastMonthlyReport';
+			await db.user.updateMany({ where: { id: userId, [field]: key }, data: { [field]: prev } });
+		}
 	};
 }

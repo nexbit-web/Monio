@@ -1,4 +1,6 @@
 import { db } from '$lib/server/db';
+import { prismaStore } from '$lib/server/bot/store';
+import { loadAdvice, toUsd } from '$lib/advisor';
 import {
 	accountBalances,
 	expenseByDay,
@@ -48,7 +50,8 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		balances,
 		categories,
 		accounts,
-		recent
+		recent,
+		advice
 	] = await Promise.all([
 		totalsByType(db, user.id, range),
 		totalsByType(db, user.id, prevComparable),
@@ -72,7 +75,9 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			},
 			orderBy: [{ occurredAt: 'desc' }, { createdAt: 'desc' }],
 			take: 7
-		})
+		}),
+		// наставник — только для текущего месяца: «сколько можно тратить в день»
+		isCurrent ? loadAdvice(prismaStore(db), { id: user.id, tz, goalUsd: user.goalUsd }, now) : null
 	]);
 
 	const catById = new Map(categories.map((c) => [c.id, c]));
@@ -147,6 +152,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			account: r.account,
 			toAccount: r.toAccount
 		})),
-		dayOfMonth: today
+		dayOfMonth: today,
+		coach: advice && {
+			status: advice.month.status,
+			perDay: advice.month.perDay,
+			left: advice.month.left,
+			savedUsd: toUsd(advice.month.saved, advice.goal.rate),
+			goalUsd: advice.goal.usd
+		}
 	};
 };

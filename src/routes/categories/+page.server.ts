@@ -5,7 +5,6 @@ import { db } from '$lib/server/db';
 import { normalize } from '$lib/server/finance/categorize';
 import { totalsByCategory } from '$lib/server/finance/stats';
 import { Prisma } from '$lib/server/prisma/client';
-import { parseAmount } from '$lib/money';
 import { currentMonthKey, monthRange } from '$lib/date';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -22,8 +21,7 @@ const schema = z.object({
 		.min(1, 'Название не может быть пустым')
 		.max(40, 'Название — до 40 символов'),
 	icon: z.string().refine(isIconKey, 'Выбери иконку'),
-	keywords: z.string().max(3000).optional(),
-	monthlyBudget: z.string().max(20).optional()
+	keywords: z.string().max(3000).optional()
 });
 
 /** «АТБ, сильпо\nновус» → ['атб', 'сильпо', 'новус'] — без повторов и пустых. */
@@ -71,7 +69,6 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 			name: c.name,
 			icon: c.icon,
 			keywords: c.keywords,
-			monthlyBudget: c.monthlyBudget,
 			archived: c.archived,
 			txCount: countOf.get(c.id) ?? 0,
 			spentThisMonth: spent.get(c.id) ?? 0
@@ -92,14 +89,13 @@ export const actions: Actions = {
 			return fail(400, { message: parsed.error.issues[0]?.message ?? 'Проверь поля' });
 		const f = parsed.data;
 
-		let monthlyBudget: number | null = null;
-		if (f.kind === 'EXPENSE' && f.monthlyBudget?.trim()) {
-			monthlyBudget = parseAmount(f.monthlyBudget);
-			if (monthlyBudget === null)
-				return fail(400, { message: 'Лимит — число больше нуля или пусто' });
-		}
-
-		const data = { name: f.name, icon: f.icon, keywords: parseKeywords(f.keywords), monthlyBudget };
+		// Лимитов на категории нет: фиксированных сумм «на еду», «на красоту» не держим.
+		const data = {
+			name: f.name,
+			icon: f.icon,
+			keywords: parseKeywords(f.keywords),
+			monthlyBudget: null
+		};
 
 		try {
 			if (f.id) {

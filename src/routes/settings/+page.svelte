@@ -18,6 +18,7 @@
 	import ShieldCheck from '@lucide/svelte/icons/shield-check';
 	import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
 	import MonitorX from '@lucide/svelte/icons/monitor-x';
+	import BookOpen from '@lucide/svelte/icons/book-open';
 
 	let { data, form } = $props();
 
@@ -456,6 +457,79 @@
 		</div>
 	</section>
 
+	<!-- Отчёты наставника -->
+	<section id="reports" class="scroll-mt-6 border-b border-border py-8">
+		<div class={row}>
+			<div>
+				<h2 class={title}>Наставник</h2>
+				<p class={hint}>
+					Сколько откладывать в месяц — в долларах, в гривны переводим по курсу НБУ. Бот сам
+					присылает отчёты и итог месяца: выполнена ли цель.
+				</p>
+			</div>
+			<form
+				method="POST"
+				action="?/reports"
+				class="grid max-w-md gap-3 text-[13px]"
+				use:enhance={() =>
+					async ({ result, update }) => {
+						if (result.type === 'success') toast.success('Сохранено');
+						if (result.type === 'failure')
+							toast.error(String(result.data?.goalError ?? 'Не получилось'));
+						await update({ reset: false });
+					}}
+			>
+				<div class="grid gap-1.5">
+					<label for="goalUsd" class="font-medium">Цель: откладывать в месяц, $</label>
+					<Input
+						id="goalUsd"
+						name="goalUsd"
+						value={String(data.reports.goalUsd)}
+						inputmode="numeric"
+						maxlength={7}
+						class="w-28"
+					/>
+				</div>
+				<label class="flex items-start gap-3">
+					<input
+						type="checkbox"
+						name="weekly"
+						checked={data.reports.weekly}
+						class="mt-0.5 size-4 accent-primary"
+					/>
+					<span>
+						<span class="font-medium">Отчёт за неделю</span>
+						<span class="block text-muted-foreground">в воскресенье вечером, около 19–20 часов</span
+						>
+					</span>
+				</label>
+				<label class="flex items-start gap-3">
+					<input
+						type="checkbox"
+						name="monthly"
+						checked={data.reports.monthly}
+						class="mt-0.5 size-4 accent-primary"
+					/>
+					<span>
+						<span class="font-medium">Итоги месяца</span>
+						<span class="block text-muted-foreground"
+							>1-го числа: выполнена ли цель, а если нет — почему</span
+						>
+					</span>
+				</label>
+				{#if !data.telegram.links.length}
+					<p class="text-muted-foreground">
+						Отчёты приходят в Telegram — сначала <a
+							href="#telegram"
+							class="font-medium text-link hover:underline">подключи бота</a
+						>.
+					</p>
+				{/if}
+				<Button type="submit" size="sm" class="w-fit">Сохранить</Button>
+			</form>
+		</div>
+	</section>
+
 	<!-- Данные -->
 	<section class="border-b border-border py-8">
 		<div class={row}>
@@ -473,6 +547,16 @@
 
 	<!-- Аккаунт и выход -->
 	<section class="space-y-8 py-8">
+		<div class={row}>
+			<div>
+				<h2 class={title}>Как пользоваться</h2>
+				<p class={hint}>CRM, Telegram-бот и наставник — коротко и с примерами.</p>
+			</div>
+			<div class="flex items-center">
+				<Button variant="outline" size="sm" href="/help"><BookOpen /> Открыть справку</Button>
+			</div>
+		</div>
+
 		<div class={row}>
 			<div>
 				<h2 class={title}>Аккаунт</h2>

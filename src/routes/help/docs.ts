@@ -26,7 +26,7 @@ export const SECTIONS = [
 	'bot-keys',
 	'categorize',
 	'site',
-	'limits',
+	'advisor',
 	'accounts',
 	'safety',
 	'faq'
@@ -87,7 +87,7 @@ export const UI: Record<Lang, Ui> = {
 			'bot-keys': 'Кнопки и команды бота',
 			categorize: 'Как бот узнаёт категорию',
 			site: 'Сайт: что где лежит',
-			limits: 'Лимиты на месяц',
+			advisor: 'Наставник: цель $100 в месяц',
 			accounts: 'Счета, остатки и переводы',
 			safety: 'Безопасность и доступ',
 			faq: 'Частые вопросы'
@@ -100,7 +100,7 @@ export const UI: Record<Lang, Ui> = {
 			'bot-keys': 'Кнопки',
 			categorize: 'Категории',
 			site: 'Сайт',
-			limits: 'Лимиты',
+			advisor: 'Наставник',
 			accounts: 'Счета',
 			safety: 'Безопасность',
 			faq: 'Вопросы'
@@ -132,7 +132,7 @@ export const UI: Record<Lang, Ui> = {
 			'bot-keys': 'Кнопки й команди бота',
 			categorize: 'Як бот упізнає категорію',
 			site: 'Сайт: що де лежить',
-			limits: 'Ліміти на місяць',
+			advisor: 'Наставник: ціль $100 на місяць',
 			accounts: 'Рахунки, залишки й перекази',
 			safety: 'Безпека й доступ',
 			faq: 'Часті питання'
@@ -145,7 +145,7 @@ export const UI: Record<Lang, Ui> = {
 			'bot-keys': 'Кнопки',
 			categorize: 'Категорії',
 			site: 'Сайт',
-			limits: 'Ліміти',
+			advisor: 'Наставник',
 			accounts: 'Рахунки',
 			safety: 'Безпека',
 			faq: 'Питання'
@@ -177,7 +177,7 @@ export const UI: Record<Lang, Ui> = {
 			'bot-keys': 'Bot buttons and commands',
 			categorize: 'How the bot finds the category',
 			site: 'The website: what is where',
-			limits: 'Monthly limits',
+			advisor: 'Coach: $100 a month',
 			accounts: 'Accounts, balances and transfers',
 			safety: 'Security and access',
 			faq: 'FAQ'
@@ -190,7 +190,7 @@ export const UI: Record<Lang, Ui> = {
 			'bot-keys': 'Buttons',
 			categorize: 'Categories',
 			site: 'Website',
-			limits: 'Limits',
+			advisor: 'Coach',
 			accounts: 'Accounts',
 			safety: 'Security',
 			faq: 'FAQ'

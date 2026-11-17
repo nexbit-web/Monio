@@ -48,6 +48,17 @@ model User {
   /// Когда созданы стартовые счета и категории; null — ещё не создавали
   initializedAt DateTime?
 
+  /// Бот сам присылает отчёт за неделю — в воскресенье вечером
+  weeklyReport      Boolean @default(true)
+  /// …и итоги месяца — 1-го числа
+  monthlyReport     Boolean @default(true)
+  /// За какую неделю (понедельник, «2026-11-16») уже отправлен отчёт — чтобы не прислать дважды
+  lastWeeklyReport  String?
+  /// За какой месяц («2026-10») уже отправлены итоги
+  lastMonthlyReport String?
+  /// Цель наставника: сколько долларов откладывать в месяц
+  goalUsd           Int     @default(100)
+
   sessions      Session[]
   accounts      Account[]
   categories    Category[]
@@ -97,6 +108,8 @@ model Category {
   keywords      String[]     @default([])
   /// Месячный лимит (только для расходов); null — без лимита
   monthlyBudget Int?
+  /// Обязательная трата (жильё, продукты, связь) — её наставник не предлагает урезать
+  essential     Boolean      @default(false)
   archived      Boolean      @default(false)
   sortOrder     Int          @default(0)
   createdAt     DateTime     @default(now())
@@ -109,21 +122,21 @@ model Category {
 }
 
 model Transaction {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String
   type        TxType
   /// Всегда > 0; направление задаёт type
   amount      Int
-  occurredAt  DateTime  @db.Timestamptz(3)
+  occurredAt  DateTime @db.Timestamptz(3)
   accountId   String
   /// Только для TRANSFER — счёт-получатель
   toAccountId String?
   /// null у переводов и у операций, которым ещё не выбрали категорию
   categoryId  String?
   note        String?
-  source      TxSource  @default(WEB)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  source      TxSource @default(WEB)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   account   Account   @relation("TxAccount", fields: [accountId], references: [id], onDelete: NoAction)

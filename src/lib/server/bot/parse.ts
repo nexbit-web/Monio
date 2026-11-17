@@ -76,6 +76,33 @@ export function parseEntry(text: string): Entry | null {
 	return { amount: pick.amount, sign: pick.sign, note, daysAgo };
 }
 
+// ── Отложить: «нз 1000», «відклав 500» ──────────────────────────────────
+
+/** Слова «отложить» — после normalize(): «відклав» → «видклав». */
+const SAVE_EXACT = new Set(['нз']);
+// «накоплен», «накопичен» — но не «накопитель», «накопичувач» (диск — это покупка)
+const SAVE_PREFIX = ['видкла', 'отлож', 'отклад', 'накоплен', 'накопичен'];
+const SAVE_PREP = new Set(['в', 'у', 'во', 'на']);
+
+const bareWord = (w: string) => normalize(w).replace(/[^\p{L}]/gu, '');
+
+/**
+ * «нз 1000», «відклав 500 на машину», «отложила 2000», «1000 в накопления» —
+ * это не трата, а отложенные деньги: перевод на счёт «Накопления». null —
+ * слова «отложить» нет. Само слово (и предлог перед ним) из комментария убираем.
+ */
+export function extractSaving(note: string): { note: string } | null {
+	const words = note.split(/\s+/).filter(Boolean);
+	const i = words.findIndex((w) => {
+		const t = bareWord(w);
+		return SAVE_EXACT.has(t) || SAVE_PREFIX.some((p) => t.startsWith(p));
+	});
+	if (i < 0) return null;
+	const drop = new Set([i]);
+	if (i > 0 && SAVE_PREP.has(bareWord(words[i - 1]))) drop.add(i - 1);
+	return { note: words.filter((_, j) => !drop.has(j)).join(' ') };
+}
+
 // ── Счёт словом: «250 кофе нал» ─────────────────────────────────────────
 
 type AccountLike = { name: string; type: string };

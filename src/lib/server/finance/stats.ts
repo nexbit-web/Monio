@@ -82,6 +82,63 @@ export async function totalsByCategoryMonth(
 	return rows.map((r) => ({ ...r, total: Number(r.total) }));
 }
 
+/** Доходы и расходы по месяцам и категориям одним запросом — для наставника. */
+export async function cellsByMonth(
+	db: PrismaClient,
+	userId: string,
+	tz: string,
+	range: Range
+): Promise<
+	{ month: string; type: 'INCOME' | 'EXPENSE'; categoryId: string | null; total: number }[]
+> {
+	const rows = await db.$queryRaw<
+		{ month: string; type: 'INCOME' | 'EXPENSE'; categoryId: string | null; total: number }[]
+	>`
+		SELECT to_char("occurredAt" AT TIME ZONE ${tz}, 'YYYY-MM') AS month,
+		       "type"::text AS type,
+		       "categoryId",
+		       SUM("amount")::float8 AS total
+		FROM "Transaction"
+		WHERE "userId" = ${userId}
+		  AND "occurredAt" >= ${range.start} AND "occurredAt" < ${range.end}
+		  AND "type" <> 'TRANSFER'
+		GROUP BY 1, 2, 3`;
+	return rows.map((r) => ({ ...r, total: Number(r.total) }));
+}
+
+/**
+ * Отложено по месяцам: переводы на счета «Накопления» минус переводы с них на
+ * обычные счета. «2026-11» → копейки. Это и считается к цели наставника.
+ */
+export async function savedByMonth(
+	db: PrismaClient,
+	userId: string,
+	tz: string,
+	range: Range
+): Promise<Map<string, number>> {
+	const rows = await db.$queryRaw<{ month: string; total: number }[]>`
+		SELECT to_char(t."occurredAt" AT TIME ZONE ${tz}, 'YYYY-MM') AS month,
+		       SUM(CASE WHEN dst."type" = 'SAVINGS' THEN t."amount" ELSE -t."amount" END)::float8 AS total
+		FROM "Transaction" t
+		JOIN "Account" src ON src."id" = t."accountId"
+		JOIN "Account" dst ON dst."id" = t."toAccountId"
+		WHERE t."userId" = ${userId}
+		  AND t."type" = 'TRANSFER'
+		  AND t."occurredAt" >= ${range.start} AND t."occurredAt" < ${range.end}
+		  AND (src."type" = 'SAVINGS') <> (dst."type" = 'SAVINGS')
+		GROUP BY 1`;
+	return new Map(rows.map((r) => [r.month, Number(r.total)]));
+}
+
+/** Когда записана самая ранняя операция — с этого момента ведётся учёт. */
+export async function firstTxAt(db: PrismaClient, userId: string): Promise<Date | null> {
+	const row = await db.transaction.aggregate({
+		where: { userId, type: { in: ['INCOME', 'EXPENSE'] } },
+		_min: { occurredAt: true }
+	});
+	return row._min.occurredAt;
+}
+
 /** День месяца (1…31) → сумма расходов. */
 export async function expenseByDay(
 	db: PrismaClient,

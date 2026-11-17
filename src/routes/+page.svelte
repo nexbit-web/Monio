@@ -14,6 +14,7 @@
 	import { formatMoney, percentChange } from '$lib/money';
 	import { monthGen, monthName, monthPrep, monthTitle } from '$lib/date';
 	import { cn } from '$lib/utils';
+	import NavIcon from '$lib/components/nav-icon.svelte';
 	import ArrowUp from '@lucide/svelte/icons/arrow-up';
 	import ArrowDown from '@lucide/svelte/icons/arrow-down';
 	import Plus from '@lucide/svelte/icons/plus';
@@ -136,6 +137,31 @@
 			{@render stat('Остаток месяца', formatMoney(net, { sign: true }), netNote)}
 			{@render stat('На всех счетах', formatMoney(data.totalBalance), balanceNote)}
 		</div>
+
+		{#if data.coach}
+			{@const c = data.coach}
+			<a
+				href="/advisor"
+				class="flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-violet/30 bg-violet/5 px-4 py-3 text-sm transition-colors hover:bg-violet/10"
+			>
+				<span class="flex items-center gap-2 font-semibold text-violet">
+					<NavIcon name="advisor" size={18} /> Наставник
+				</span>
+				<span>
+					Отложено <b>${c.savedUsd}</b> из ${c.goalUsd}
+					{#if c.status === 'done'}
+						— цель месяца выполнена
+					{:else if (c.status === 'ok' || c.status === 'pace') && c.perDay !== null}
+						<span class="text-muted-foreground"
+							>· можно тратить ≈ {formatMoney(c.perDay)} в день</span
+						>
+					{:else if c.status === 'short' && c.left !== null}
+						<span class="text-muted-foreground">· до цели не хватает {formatMoney(-c.left)}</span>
+					{/if}
+				</span>
+				<span class="ml-auto text-[13px] font-medium text-link">Подробнее →</span>
+			</a>
+		{/if}
 
 		<div class="grid gap-3 lg:grid-cols-5">
 			<Card.Root class="lg:col-span-3">

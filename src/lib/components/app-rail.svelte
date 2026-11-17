@@ -117,7 +117,7 @@
 		class="fixed inset-x-1.5 bottom-1.5 z-30 flex rounded-[8px] px-1 py-1.5 shadow-lg"
 		style="background: var(--rail-bg, var(--rail))"
 	>
-		{#each NAV as item (item.href)}
+		{#each NAV.filter((item) => !item.desktopOnly) as item (item.href)}
 			{@const active = isActive(pathname, item.href)}
 			<a
 				href={item.href}

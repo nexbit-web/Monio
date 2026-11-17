@@ -14,17 +14,19 @@ import {
 	addDaysToKey,
 	dayKeyOf,
 	dayRange,
-	daysInMonth,
 	isDayKey,
 	isMonthKey,
 	monthKeyOf,
 	monthRange,
-	shiftMonth,
-	zonedParts
+	shiftMonth
 } from '../../date.ts';
+import { isWeekKey, weekKeyOf } from '../../week.ts';
+import { T_REPORTS, adviceView, loadMonth, weekView, type ReportUser } from './reports.ts';
 import { formatDayShort, monthName } from './dates.ts';
 import { bestMatch, dropNameWords, learnableWord, matchCategory } from '../finance/categorize.ts';
-import { extractAccount, parseEntry } from './parse.ts';
+import { extractAccount, extractSaving, parseEntry } from './parse.ts';
+import { goalProgressText, saveScreenText } from './advice-text.ts';
+import { MAX_AMOUNT } from '../../money.ts';
 import {
 	FAILED,
 	HELP,
@@ -220,8 +222,11 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 	const actions: Record<ActionId, (ctx: BotContext) => Promise<unknown>> = {
 		expense: (ctx) => askCategory(ctx, 'EXPENSE'),
 		income: (ctx) => askCategory(ctx, 'INCOME'),
+		save: (ctx) => showSave(ctx),
 		today: (ctx) => showDay(ctx, dayKeyOf(new Date(), me(ctx).tz)),
+		week: (ctx) => showWeek(ctx, weekKeyOf(new Date(), me(ctx).tz)),
 		month: (ctx) => showMonth(ctx, monthKeyOf(new Date(), me(ctx).tz)),
+		advice: (ctx) => showAdvice(ctx),
 		balance: (ctx) => showBalance(ctx),
 		last: (ctx) => showHistory(ctx, 0),
 		undo: askUndo,
@@ -267,6 +272,10 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 		}
 
 		const occurredAt = new Date(ctx.message!.date * 1000 - entry.daysAgo * DAY_MS);
+		// «нз 1000», «відклав 500» — не трата, а отложенные деньги
+		const saving = extractSaving(entry.note);
+		if (saving) return recordSaving(ctx, entry.amount, saving.note, occurredAt);
+
 		const month = monthKeyOf(occurredAt, tz);
 		const [categories, accounts, spent] = await Promise.all([
 			store.categories(userId),
@@ -325,6 +334,111 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			reply_markup: cardKeyboard(tx, categories)
 		});
 	}
+
+	// ── Отложить: перевод на «Накопления» ───────────────────────────────
+
+	/**
+	 * Отложенное — перевод с обычного счёта (названного словом или основного)
+	 * на счёт «Накопления». Его нет — заводим. Только это и считается к цели.
+	 */
+	async function recordSaving(ctx: BotContext, amount: number, text: string, occurredAt: Date) {
+		const { userId, tz, telegramId } = me(ctx);
+		const accounts = await store.accounts(userId);
+		const named = extractAccount(text, accounts);
+		const regular = accounts.filter((a) => a.type !== 'SAVINGS');
+		const from =
+			(named.account && named.account.type !== 'SAVINGS' ? named.account : null) ??
+			regular.find((a) => a.isDefault) ??
+			regular[0];
+		if (!from) {
+			await ctx.reply(T.noSourceAccount, { reply_markup: mainKeyboard });
+			return;
+		}
+		const to =
+			(named.account?.type === 'SAVINGS' ? named.account : null) ??
+			accounts.find((a) => a.type === 'SAVINGS') ??
+			(await store.addSavingsAccount(userId));
+
+		const [tx] = await Promise.all([
+			store.createTransfer({
+				userId,
+				amount,
+				occurredAt,
+				accountId: from.id,
+				toAccountId: to.id,
+				note: named.note.slice(0, MAX_NOTE) || null
+			}),
+			me(ctx).pendingCategoryId ? store.setPending(telegramId, null) : null
+		]);
+		const footer = await goalFooter(ctx, monthKeyOf(occurredAt, tz));
+		await ctx.reply(cardText(tx, tz, { footer }), {
+			parse_mode: 'HTML',
+			reply_markup: cardKeyboard(tx, [])
+		});
+	}
+
+	/** «🎯 Листопад: відкладено $20 з $100 — ще 3 639 ₴». */
+	async function goalFooter(ctx: BotContext, key: string): Promise<string> {
+		const { userId, tz, goalUsd } = me(ctx);
+		// Перевод уже записан: если подсчёт не удался, отвечаем без него, а не «ошибкой» —
+		// иначе человек отправит «нз» ещё раз и отложит дважды.
+		try {
+			const [saved, rates] = await Promise.all([
+				store.savedByMonth(userId, tz, monthRange(key, tz)),
+				store.usdRates(new Date())
+			]);
+			return goalProgressText(
+				key,
+				saved.get(key) ?? 0,
+				goalUsd,
+				rates.monthEnd[key] ?? rates.current
+			);
+		} catch (err) {
+			console.error('[bot] не посчитали, сколько отложено:', err);
+			return '';
+		}
+	}
+
+	/** «🐷 Відкласти»: сколько отложено в этом месяце и кнопка «отложить остаток до цели». */
+	async function showSave(ctx: BotContext) {
+		const { userId, tz, goalUsd } = me(ctx);
+		const now = new Date();
+		const key = monthKeyOf(now, tz);
+		const [saved, rates, accounts] = await Promise.all([
+			store.savedByMonth(userId, tz, monthRange(key, tz)),
+			store.usdRates(now),
+			store.accounts(userId)
+		]);
+		const regular = accounts.filter((a) => a.type !== 'SAVINGS');
+		const view = saveScreenText({
+			key,
+			saved: saved.get(key) ?? 0,
+			goalUsd,
+			rate: rates.current,
+			from: (regular.find((a) => a.isDefault) ?? regular[0])?.name ?? null,
+			to: accounts.find((a) => a.type === 'SAVINGS')?.name ?? null
+		});
+		await ctx.reply(view.text, {
+			parse_mode: 'HTML',
+			reply_markup: view.rest > 0 ? inline([[btn(view.button, `sv:${view.rest}`)]]) : mainKeyboard
+		});
+	}
+
+	bot.callbackQuery(/^sv:(\d{1,10})$/, async (ctx) => {
+		const amount = Number(ctx.match[1]);
+		// Сначала убираем кнопку, потом записываем. Второе нажатие (или повтор от
+		// Telegram) кнопку уже не уберёт — Telegram ответит «не изменилось», и
+		// второй раз мы не отложим.
+		const removed =
+			amount > 0 &&
+			amount < MAX_AMOUNT &&
+			(await ctx.editMessageReplyMarkup().then(
+				() => true,
+				() => false
+			));
+		await ctx.answerCallbackQuery(removed ? undefined : { text: T.staleButton });
+		if (removed) await recordSaving(ctx, amount, '', new Date());
+	});
 
 	// ── Выбор категории перед суммой ────────────────────────────────────
 
@@ -743,43 +857,9 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 
 	async function showMonth(ctx: BotContext, key: string, inPlace = false) {
 		const { userId, tz } = me(ctx);
-		const now = new Date();
-		const currentKey = monthKeyOf(now, tz);
-		const current = key === currentKey;
-		const start = monthRange(key, tz).start;
-		const range = current ? { start, end: now } : monthRange(key, tz);
-
+		const currentKey = monthKeyOf(new Date(), tz);
 		const prevKey = shiftMonth(key, -1);
-		const prevFull = monthRange(prevKey, tz);
-		// для текущего месяца — «тот же период» прошлого: столько же времени от начала
-		const prevRange = current
-			? {
-					start: prevFull.start,
-					end: new Date(
-						Math.min(
-							prevFull.start.getTime() + (now.getTime() - start.getTime()),
-							prevFull.end.getTime()
-						)
-					)
-				}
-			: prevFull;
-
-		const [totals, prev, byCategory, categories] = await Promise.all([
-			store.totals(userId, range),
-			store.totals(userId, prevRange),
-			store.spentByCategory(userId, range),
-			store.categories(userId, true)
-		]);
-
-		const text = monthText({
-			key,
-			current,
-			day: current ? zonedParts(now, tz).day : daysInMonth(key),
-			totals,
-			prevExpense: prev.expense,
-			byCategory,
-			categories
-		});
+		const text = monthText(await loadMonth(store, userId, tz, key));
 		const nextKey = shiftMonth(key, 1);
 		const nav = inline([
 			[
@@ -798,6 +878,52 @@ export function createBot(token: string, db: BotStore, options: BotOptions = {})
 			return;
 		}
 		await Promise.all([ctx.answerCallbackQuery(), showMonth(ctx, key, true)]);
+	});
+
+	// ── Наставник: неделя и советы ──────────────────────────────────────
+
+	const reportUser = (ctx: BotContext): ReportUser => {
+		const { userId, tz, goalUsd, weeklyReport } = me(ctx);
+		return { id: userId, tz, goalUsd, weeklyReport };
+	};
+
+	async function showWeek(ctx: BotContext, key: string, inPlace = false) {
+		const { text, markup } = await weekView(store, reportUser(ctx), key);
+		if (inPlace) await edit(ctx, text, markup);
+		else await ctx.reply(text, { parse_mode: 'HTML', reply_markup: markup });
+	}
+
+	bot.callbackQuery(/^w:(\d{4}-\d{2}-\d{2})$/, async (ctx) => {
+		const key = ctx.match[1];
+		if (!isWeekKey(key) || key > weekKeyOf(new Date(), me(ctx).tz)) {
+			await ctx.answerCallbackQuery({ text: T.futureWeek });
+			return;
+		}
+		await Promise.all([ctx.answerCallbackQuery(), showWeek(ctx, key, true)]);
+	});
+
+	bot.callbackQuery(/^wr:([01]):(\d{4}-\d{2}-\d{2})$/, async (ctx) => {
+		const on = ctx.match[1] === '1';
+		const link = me(ctx);
+		await store.setWeeklyReport(link.userId, on);
+		link.weeklyReport = on;
+		const key = ctx.match[2];
+		await Promise.all([
+			ctx.answerCallbackQuery({ text: on ? T_REPORTS.nowOn : T_REPORTS.nowOff }),
+			isWeekKey(key) ? showWeek(ctx, key, true) : null
+		]);
+	});
+
+	async function showAdvice(ctx: BotContext, inPlace = false) {
+		const { text, markup } = await adviceView(store, reportUser(ctx));
+		if (inPlace) await edit(ctx, text, markup);
+		else await ctx.reply(text, { parse_mode: 'HTML', reply_markup: markup });
+	}
+
+	bot.callbackQuery('adv', async (ctx) => {
+		await ctx.answerCallbackQuery();
+		// советы — новым сообщением: отчёт, под которым нажали, остаётся в чате
+		await showAdvice(ctx);
 	});
 
 	function defaultOf(accounts: Account[]): Account | undefined {

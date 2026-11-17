@@ -32,9 +32,12 @@ export const iconed = (x: { icon: string; name: string }) => `${iconEmoji(x.icon
 /** Подпись для кнопки — без HTML: Telegram показывает текст кнопок как есть. */
 export const plainIconed = (x: { icon: string; name: string }) => `${iconEmoji(x.icon)} ${x.name}`;
 
-/** «🍏 Продукты» / «🔄 Переказ → Накопления» / «❓ без категорії» */
+/** «🍏 Продукты» / «🐷 Відкладено → Накопления» / «🔄 Переказ → Карта» / «❓ без категорії» */
 export function txLabel(tx: Pick<Tx, 'type' | 'category' | 'toAccount'>): string {
-	if (tx.type === 'TRANSFER') return `🔄 Переказ → ${esc(tx.toAccount?.name ?? '?')}`;
+	if (tx.type === 'TRANSFER')
+		return tx.toAccount?.type === 'SAVINGS'
+			? `🐷 Відкладено → ${esc(tx.toAccount.name)}`
+			: `🔄 Переказ → ${esc(tx.toAccount?.name ?? '?')}`;
 	if (tx.category) return iconed(tx.category);
 	return '❓ <i>без категорії</i>';
 }
@@ -306,6 +309,14 @@ export const HELP = [
 	'<b>Кнопки внизу</b>',
 	`«${expense.label}» / «${income.label}» — обрати категорію й написати суму.`,
 	`«${commands.label}» — усе інше: історія, скасування, категорії.`,
+	'',
+	'<b>Відкладати — ціль $100 на місяць</b>',
+	'<code>нз 1000</code> або <code>відклав 1000</code> — переказую на рахунок «Накопления». До цілі рахується лише те, що відклав сам.',
+	`«${ACTIONS.save.label}» — скільки вже відкладено цього місяця і скільки ще до цілі.`,
+	'',
+	'<b>Наставник</b>',
+	`«${ACTIONS.advice.label}» — як іде місяць, чи вистачає доходів на ціль і скільки можна витрачати.`,
+	`«${ACTIONS.week.label}» — звіт за тиждень. Щонеділі ввечері я надсилаю його сам, а 1-го числа — чи виконано ціль місяця.`,
 	'Зникли кнопки — напиши <code>меню</code>, і я їх поверну.',
 	'',
 	'Під кожним записом: змінити категорію чи рахунок, «✏️ Змінити» — суму, опис або дату, видалити.'
@@ -405,6 +416,8 @@ export const T = {
 	nextToday: 'Сьогодні ›',
 	futureDay: 'Цей день ще не настав',
 	futureMonth: 'Цей місяць ще не настав',
+	futureWeek: 'Цей тиждень ще не настав',
+	noSourceAccount: 'Немає рахунку, з якого відкласти: додай картку чи готівку в Monio → Счета.',
 	newer: '‹ Новіші',
 	older: 'Старіші ›',
 	staleButton: 'Кнопка застаріла — відкрий розділ заново',

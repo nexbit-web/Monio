@@ -14,8 +14,7 @@
 	import FinIcon from '$lib/components/fin-icon.svelte';
 	import IconPicker from '$lib/components/icon-picker.svelte';
 	import { CATEGORY_ICONS } from '$lib/icon-keys';
-	import { formatMoney, toInputAmount } from '$lib/money';
-	import { cn } from '$lib/utils';
+	import { formatMoney } from '$lib/money';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Pencil from '@lucide/svelte/icons/pencil';
 	import Archive from '@lucide/svelte/icons/archive';
@@ -33,18 +32,12 @@
 	let open = $state(false);
 	let saving = $state(false);
 	let error = $state('');
-	let form = $state({ id: '', name: '', icon: 'other', keywords: '', monthlyBudget: '' });
+	let form = $state({ id: '', name: '', icon: 'other', keywords: '' });
 
 	function edit(c?: Cat) {
 		form = c
-			? {
-					id: c.id,
-					name: c.name,
-					icon: c.icon,
-					keywords: c.keywords.join(', '),
-					monthlyBudget: c.monthlyBudget ? toInputAmount(c.monthlyBudget) : ''
-				}
-			: { id: '', name: '', icon: isExpense ? 'other' : 'salary', keywords: '', monthlyBudget: '' };
+			? { id: c.id, name: c.name, icon: c.icon, keywords: c.keywords.join(', ') }
+			: { id: '', name: '', icon: isExpense ? 'other' : 'salary', keywords: '' };
 		error = '';
 		open = true;
 	}
@@ -79,11 +72,9 @@
 <div class="grid gap-3 pb-6">
 	<div>
 		<p class="max-w-2xl text-[13px] text-muted-foreground">
-			<b class="text-foreground">Ключевые слова</b> — по ним Мони в Telegram сам узнаёт категорию:
-			напишешь «атб 320», и он запишет в «Продукты». Пиши основу слова без окончания: «продукт»
-			поймает и «продукты», и «продуктов».
-			{#if isExpense}<b class="text-foreground">Лимит</b> — сколько готов тратить в месяц; на обзоре будет
-				видно, когда он превышен.{/if}
+			<b class="text-foreground">Ключевые слова</b> — по ним Мони в Telegram сам узнаёт категорию: напишешь
+			«атб 320», и он запишет в «Продукты». Пиши основу слова без окончания: «продукт» поймает и «продукты»,
+			и «продуктов».
 		</p>
 	</div>
 
@@ -110,14 +101,7 @@
 					{#if isExpense}
 						<div class="hidden text-right text-xs sm:block">
 							<p class="font-medium tabular">{formatMoney(c.spentThisMonth)}</p>
-							<p
-								class={cn(
-									'text-muted-foreground tabular',
-									c.monthlyBudget && c.spentThisMonth > c.monthlyBudget && 'text-destructive'
-								)}
-							>
-								{c.monthlyBudget ? `лимит ${formatMoney(c.monthlyBudget)}` : 'в этом месяце'}
-							</p>
+							<p class="text-muted-foreground">в этом месяце</p>
 						</div>
 					{/if}
 					<div class="flex shrink-0">
@@ -242,19 +226,6 @@
 					Через запятую. Регистр и украинские/русские буквы не важны.
 				</p>
 			</div>
-
-			{#if isExpense}
-				<div class="grid gap-2">
-					<Label for="cat-budget">Лимит в месяц, ₴</Label>
-					<Input
-						id="cat-budget"
-						name="monthlyBudget"
-						bind:value={form.monthlyBudget}
-						inputmode="decimal"
-						placeholder="без лимита"
-					/>
-				</div>
-			{/if}
 
 			{#if error}<p class="text-sm text-destructive" role="alert">{error}</p>{/if}
 

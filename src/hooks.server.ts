@@ -4,6 +4,8 @@ import { resolveUser, SESSION_COOKIE } from '$lib/server/auth';
 const PUBLIC_ROUTES = ['/login', '/register'];
 /** Вебхук Telegram защищён собственным секретом, сессия ему не нужна. */
 const WEBHOOK = '/api/telegram';
+/** Отчёты по расписанию (Vercel Cron) — тоже со своим секретом, CRON_SECRET. */
+const CRON = '/api/cron/reports';
 
 /**
  * Заголовки безопасности для каждого ответа:
@@ -46,7 +48,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			headers: SECURITY_HEADERS
 		});
 
-	if (path !== WEBHOOK) {
+	if (path !== WEBHOOK && path !== CRON) {
 		event.locals.user = await resolveUser(event.cookies.get(SESSION_COOKIE));
 		const isPublic = PUBLIC_ROUTES.includes(path);
 

@@ -112,3 +112,33 @@ export function formatWhen(date: Date, tz: string): string {
 	if (key === addDaysToKey(today, -1)) return `вчора, ${time}`;
 	return `${formatDayShort(date, tz)} (${WEEKDAYS_SHORT[zonedParts(date, tz).weekday]}), ${time}`;
 }
+
+const dayParts = (key: string) => key.split('-').map(Number) as [number, number, number];
+const weekdayOf = (key: string) => {
+	const [y, m, d] = dayParts(key);
+	return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+};
+
+/** «субота» */
+export const weekdayName = (dayKey: string) => WEEKDAYS[weekdayOf(dayKey)];
+
+/** «сб» */
+export const weekdayShort = (dayKey: string) => WEEKDAYS_SHORT[weekdayOf(dayKey)];
+
+/** Неделя по ключу понедельника: «16–22 листопада» / «30 листопада – 6 грудня». */
+export function weekLabel(key: string): string {
+	const [, m1, d1] = dayParts(key);
+	const [, m2, d2] = dayParts(addDaysToKey(key, 6));
+	return m1 === m2
+		? `${d1}–${d2} ${MONTHS_GEN[m2 - 1]}`
+		: `${d1} ${MONTHS_GEN[m1 - 1]} – ${d2} ${MONTHS_GEN[m2 - 1]}`;
+}
+
+/** Для кнопок: «16–22 лист» / «30 лист – 6 груд». */
+export function weekShort(key: string): string {
+	const [, m1, d1] = dayParts(key);
+	const [, m2, d2] = dayParts(addDaysToKey(key, 6));
+	return m1 === m2
+		? `${d1}–${d2} ${MONTHS_SHORT[m2 - 1]}`
+		: `${d1} ${MONTHS_SHORT[m1 - 1]} – ${d2} ${MONTHS_SHORT[m2 - 1]}`;
+}

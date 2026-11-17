@@ -30,6 +30,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 	return {
 		profile: { name: user.name ?? '', email: user.email, timezone: user.timezone },
+		reports: { weekly: user.weeklyReport, monthly: user.monthlyReport, goalUsd: user.goalUsd },
 		security: {
 			sessions,
 			// пароль, который знают все (демо из открытого кода и т.п.)
@@ -126,6 +127,28 @@ export const actions: Actions = {
 		loginLimits.email.reset(key);
 		const revoked = await revokeOtherSessions(user.id, event);
 		return { securitySaved: true, revoked };
+	},
+
+	/**
+	 * Наставник: цель в долларах в месяц и отчёты бота — за неделю в воскресенье
+	 * вечером, итог месяца 1-го числа.
+	 */
+	reports: async ({ request, locals }) => {
+		const form = await request.formData();
+		const goal = String(form.get('goalUsd') ?? '')
+			.replace(/[$\s]/g, '')
+			.trim();
+		if (!/^\d{1,6}$/.test(goal) || Number(goal) < 1 || Number(goal) > 100_000)
+			return fail(400, { goalError: 'Цель — сумма в долларах, от 1 до 100 000' });
+		await db.user.update({
+			where: { id: locals.user!.id },
+			data: {
+				goalUsd: Number(goal),
+				weeklyReport: form.get('weekly') === 'on',
+				monthlyReport: form.get('monthly') === 'on'
+			}
+		});
+		return { reportsSaved: true };
 	},
 
 	signOutOthers: async (event) => {

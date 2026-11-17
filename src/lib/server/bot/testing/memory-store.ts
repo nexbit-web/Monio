@@ -9,7 +9,9 @@ import {
 	DEFAULT_EXPENSE_CATEGORIES,
 	DEFAULT_INCOME_CATEGORIES
 } from '../../finance/defaults.ts';
+import { monthKeyOf } from '../../../date.ts';
 import { pendingFields } from '../store.ts';
+import type { MonthCell, UsdRates } from '../../../advisor.ts';
 import type {
 	Account,
 	AccountType,
@@ -18,14 +20,26 @@ import type {
 	Kind,
 	LearnWord,
 	Link,
+	NewTransfer,
 	NewTx,
 	Range,
+	Recipient,
+	ReportKind,
 	Tx,
 	TxPatch,
 	TxType
 } from '../store.ts';
 
-type UserRow = { id: string; tz: string; initialized: boolean };
+type UserRow = {
+	id: string;
+	tz: string;
+	initialized: boolean;
+	weeklyReport: boolean;
+	monthlyReport: boolean;
+	lastWeeklyReport: string | null;
+	lastMonthlyReport: string | null;
+	goalUsd: number;
+};
 type LinkRow = {
 	telegramId: bigint;
 	userId: string;
@@ -71,6 +85,8 @@ export function memoryStore() {
 	const categories: CategoryRow[] = [];
 	const accounts: AccountRow[] = [];
 	const txs: TxRow[] = [];
+	/** курс доллара «НБУ»: 40 ₴ — чтобы $100 = 4 000 ₴ и в тестах легко считать */
+	const rates: UsdRates = { current: 40, date: '2026-11-20', monthEnd: {} };
 
 	const calls: Record<string, number> = {};
 	const failures = new Set<string>();
@@ -84,14 +100,16 @@ export function memoryStore() {
 		name,
 		icon,
 		keywords,
-		monthlyBudget
+		monthlyBudget,
+		essential
 	}: CategoryRow): Category => ({
 		id,
 		kind,
 		name,
 		icon,
 		keywords: [...keywords],
-		monthlyBudget
+		monthlyBudget,
+		essential
 	});
 	const toAccount = ({ id, name, icon, type, isDefault }: AccountRow): Account => ({
 		id,
@@ -133,6 +151,7 @@ export function memoryStore() {
 					icon: c.icon,
 					keywords: [...c.keywords],
 					monthlyBudget: null,
+					essential: c.essential ?? false,
 					archived: false,
 					sortOrder: i,
 					seq: seq()
@@ -172,13 +191,16 @@ export function memoryStore() {
 			const link = links.get(telegramId);
 			if (!link) return null;
 			initialize(link.userId);
+			const user = users.get(link.userId)!;
 			return {
 				telegramId,
 				userId: link.userId,
-				tz: users.get(link.userId)!.tz,
+				tz: user.tz,
 				pendingCategoryId: link.pendingCategoryId,
 				pendingEdit: link.pendingEdit,
-				pendingAt: link.pendingAt
+				pendingAt: link.pendingAt,
+				weeklyReport: user.weeklyReport,
+				goalUsd: user.goalUsd
 			};
 		}),
 
@@ -257,6 +279,24 @@ export function memoryStore() {
 			return full(row);
 		}),
 
+		createTransfer: track('createTransfer', (input: NewTransfer) => {
+			const row: TxRow = {
+				id: newId(),
+				...input,
+				type: 'TRANSFER',
+				categoryId: null,
+				occurredAt: new Date(input.occurredAt),
+				source: 'TELEGRAM',
+				seq: seq()
+			};
+			txs.push(row);
+			return full(row);
+		}),
+
+		addSavingsAccount: track('addSavingsAccount', (userId: string) =>
+			toAccount(addAccount(userId, 'Накопления', { type: 'SAVINGS', icon: 'savings' }))
+		),
+
 		tx: track('tx', (userId: string, id: string) => {
 			const row = txs.find((t) => t.id === id && t.userId === userId);
 			return row ? full(row) : null;
@@ -331,14 +371,97 @@ export function memoryStore() {
 					out.set(t.toAccountId, (out.get(t.toAccountId) ?? 0) + t.amount);
 			}
 			return out;
-		})
+		}),
+
+		monthCells: track('monthCells', (userId: string, tz: string, range: Range) => {
+			const out = new Map<string, MonthCell>();
+			for (const t of txs) {
+				if (t.userId !== userId || t.type === 'TRANSFER' || !inRange(t.occurredAt, range)) continue;
+				const month = monthKeyOf(t.occurredAt, tz);
+				const key = `${month}|${t.type}|${t.categoryId}`;
+				const cell = out.get(key) ?? { month, type: t.type, categoryId: t.categoryId, total: 0 };
+				cell.total += t.amount;
+				out.set(key, cell);
+			}
+			return [...out.values()];
+		}),
+
+		savedByMonth: track('savedByMonth', (userId: string, tz: string, range: Range) => {
+			const type = (id: string | null) => accounts.find((a) => a.id === id)?.type;
+			const out = new Map<string, number>();
+			for (const t of txs) {
+				if (t.userId !== userId || t.type !== 'TRANSFER' || !inRange(t.occurredAt, range)) continue;
+				const into = type(t.toAccountId) === 'SAVINGS';
+				if (into === (type(t.accountId) === 'SAVINGS')) continue;
+				const month = monthKeyOf(t.occurredAt, tz);
+				out.set(month, (out.get(month) ?? 0) + (into ? t.amount : -t.amount));
+			}
+			return out;
+		}),
+
+		firstTxAt: track('firstTxAt', (userId: string) => {
+			const mine = txs.filter((t) => t.userId === userId && t.type !== 'TRANSFER');
+			if (!mine.length) return null;
+			return new Date(Math.min(...mine.map((t) => t.occurredAt.getTime())));
+		}),
+
+		usdRates: track('usdRates', () => structuredClone(rates)),
+
+		setWeeklyReport: track('setWeeklyReport', (userId: string, on: boolean) => {
+			users.get(userId)!.weeklyReport = on;
+		}),
+
+		reportRecipients: track('reportRecipients', (): Recipient[] =>
+			[...users.values()]
+				.map((u) => ({
+					userId: u.id,
+					tz: u.tz,
+					telegramIds: [...links.values()]
+						.filter((l) => l.userId === u.id)
+						.map((l) => l.telegramId),
+					weeklyReport: u.weeklyReport,
+					monthlyReport: u.monthlyReport,
+					lastWeeklyReport: u.lastWeeklyReport,
+					lastMonthlyReport: u.lastMonthlyReport,
+					goalUsd: u.goalUsd
+				}))
+				.filter((r) => r.telegramIds.length > 0)
+		),
+
+		claimReport: track('claimReport', (userId: string, kind: ReportKind, key: string) => {
+			const user = users.get(userId);
+			if (!user) return false;
+			const field = kind === 'weekly' ? 'lastWeeklyReport' : 'lastMonthlyReport';
+			const last = user[field];
+			if (last !== null && last >= key) return false;
+			user[field] = key;
+			return true;
+		}),
+
+		releaseReport: track(
+			'releaseReport',
+			(userId: string, kind: ReportKind, key: string, prev: string | null) => {
+				const user = users.get(userId);
+				const field = kind === 'weekly' ? 'lastWeeklyReport' : 'lastMonthlyReport';
+				if (user && user[field] === key) user[field] = prev;
+			}
+		)
 	};
 
 	// ── Наполнение для тестов ───────────────────────────────────────────
 
 	function addUser({ tz = 'Europe/Kyiv', initialized = true } = {}) {
 		const id = newId();
-		users.set(id, { id, tz, initialized: false });
+		users.set(id, {
+			id,
+			tz,
+			initialized: false,
+			weeklyReport: true,
+			monthlyReport: true,
+			lastWeeklyReport: null,
+			lastMonthlyReport: null,
+			goalUsd: 100
+		});
 		if (initialized) initialize(id);
 		return id;
 	}
@@ -420,6 +543,7 @@ export function memoryStore() {
 		categories,
 		accounts,
 		txs,
+		rates,
 		calls,
 		/** следующий вызов метода бросит ошибку */
 		failNext: (method: keyof BotStore) => failures.add(method),

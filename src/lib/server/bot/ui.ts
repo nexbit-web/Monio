@@ -5,7 +5,8 @@
  *
  * Клавиатура внизу (открывается значком с четырьмя точками, сворачивается стрелкой «⌄») — главный пульт.
  * У неё два экрана с переходами между ними:
- *   главный  — самое частое: витрата, дохід, сьогодні, місяць, рахунки, «Команди»;
+ *   главный  — самое частое: витрата, дохід, відкласти, сьогодні, тиждень, місяць, поради,
+ *              рахунки, «Команди»;
  *   команды  — все команды бота кнопками и «‹ Назад».
  *
  * Значки. В Telegram эмодзи рисуются одинаково на светлой и тёмной теме,
@@ -26,8 +27,11 @@ export type ButtonStyle = 'danger' | 'success' | 'primary';
 export type ActionId =
 	| 'expense'
 	| 'income'
+	| 'save'
 	| 'today'
+	| 'week'
 	| 'month'
+	| 'advice'
 	| 'balance'
 	| 'last'
 	| 'undo'
@@ -68,6 +72,23 @@ export const ACTIONS: Record<ActionId, Action> = {
 		aliases: ['доходи', 'доход', 'доходы'],
 		old: ['➕ Доход', '+ Доход']
 	},
+	save: {
+		label: '🐷 Відкласти',
+		command: 'save',
+		description: 'Відкласти гроші: нз 1000 — це й рахується до цілі $100',
+		aliases: [
+			'нз',
+			'відклав',
+			'відклала',
+			'відкладено',
+			'отложить',
+			'отложил',
+			'отложила',
+			'отложено',
+			'скарбничка',
+			'копилка'
+		]
+	},
 	today: {
 		label: '📊 Сьогодні',
 		command: 'today',
@@ -75,12 +96,33 @@ export const ACTIONS: Record<ActionId, Action> = {
 		aliases: ['за сьогодні', 'сегодня', 'за сегодня'],
 		old: ['📊 Сегодня']
 	},
+	week: {
+		label: '📈 Тиждень',
+		command: 'week',
+		description: 'Звіт за тиждень: доходи, витрати і куди пішли гроші',
+		aliases: ['за тиждень', 'неделя', 'за неделю', 'звіт', 'отчет', 'отчёт']
+	},
 	month: {
 		label: '📅 Місяць',
 		command: 'month',
 		description: 'Підсумки місяця',
 		aliases: ['за місяць', 'месяц', 'за месяц'],
 		old: ['📅 Месяц']
+	},
+	advice: {
+		label: '💡 Поради',
+		command: 'advice',
+		description: 'Фінансовий наставник: скільки відкладати і що покращити',
+		aliases: [
+			'порада',
+			'наставник',
+			'советы',
+			'совет',
+			'аналіз',
+			'анализ',
+			'накопичення',
+			'накопления'
+		]
 	},
 	balance: {
 		label: '💳 Рахунки',
@@ -137,8 +179,11 @@ export const ACTIONS: Record<ActionId, Action> = {
 export const COMMAND_ORDER: ActionId[] = [
 	'expense',
 	'income',
+	'save',
 	'today',
+	'week',
 	'month',
+	'advice',
 	'balance',
 	'last',
 	'undo',
@@ -150,16 +195,17 @@ export const COMMAND_ORDER: ActionId[] = [
 
 /** Главный экран клавиатуры: крупные кнопки самого частого. */
 export const MAIN_ROWS: ActionId[][] = [
-	['expense', 'income'],
-	['today', 'month'],
-	['balance', 'commands']
+	['expense', 'income', 'save'],
+	['today', 'week', 'month'],
+	['advice', 'balance', 'commands']
 ];
 
 /** Экран «Команды»: всё, что умеет бот. */
 export const COMMAND_ROWS: ActionId[][] = [
-	['expense', 'income'],
-	['today', 'month', 'balance'],
-	['last', 'undo', 'categories'],
+	['expense', 'income', 'save'],
+	['today', 'week', 'month'],
+	['advice', 'balance', 'last'],
+	['undo', 'categories'],
 	['help', 'main']
 ];
 

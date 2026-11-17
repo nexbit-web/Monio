@@ -1,7 +1,13 @@
 import type { PrismaClient } from '../prisma/client.ts';
 import type { AccountType, CategoryKind } from '../prisma/enums.ts';
 
-type CategorySeed = { icon: string; name: string; keywords: string[] };
+type CategorySeed = {
+	icon: string;
+	name: string;
+	keywords: string[];
+	/** обязательная трата — наставник не предлагает её урезать */
+	essential?: boolean;
+};
 
 /**
  * Стартовые категории. Ключевые слова — основы слов (без окончаний):
@@ -12,6 +18,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'groceries',
 		name: 'Продукты',
+		essential: true,
 		keywords: [
 			'продукт',
 			'еда',
@@ -61,6 +68,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'transport',
 		name: 'Транспорт',
+		essential: true,
 		keywords: [
 			'такси',
 			'uber',
@@ -85,6 +93,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'car',
 		name: 'Авто',
+		essential: true,
 		keywords: [
 			'бенз',
 			'топлив',
@@ -105,11 +114,13 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'home',
 		name: 'Жильё',
+		essential: true,
 		keywords: ['аренд', 'оренд', 'квартир', 'ипотек', 'жиль', 'житл']
 	},
 	{
 		icon: 'utilities',
 		name: 'Коммунальные услуги',
+		essential: true,
 		keywords: [
 			'коммунал',
 			'комунал',
@@ -128,6 +139,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'mobile',
 		name: 'Мобильная связь',
+		essential: true,
 		keywords: [
 			'мобил',
 			'телефон',
@@ -147,6 +159,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'internet',
 		name: 'Интернет и ТВ',
+		essential: true,
 		keywords: [
 			'интернет',
 			'провайдер',
@@ -183,6 +196,7 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'health',
 		name: 'Здоровье',
+		essential: true,
 		keywords: [
 			'аптек',
 			'лекарств',
@@ -286,11 +300,13 @@ export const DEFAULT_EXPENSE_CATEGORIES: CategorySeed[] = [
 	{
 		icon: 'pets',
 		name: 'Питомцы',
+		essential: true,
 		keywords: ['корм', 'ветерин', 'кот', 'собак', 'питом', 'зоомагаз']
 	},
 	{
 		icon: 'bank',
 		name: 'Кредиты и комиссии',
+		essential: true,
 		keywords: ['кредит', 'комисс', 'комис', 'рассрочк', 'розстроч', 'долг', 'борг']
 	},
 	{ icon: 'other', name: 'Другое', keywords: [] }
@@ -353,6 +369,7 @@ export async function initializeUser(db: PrismaClient, userId: string): Promise<
 				name: c.name,
 				icon: c.icon,
 				keywords: c.keywords,
+				essential: c.essential ?? false,
 				sortOrder: i
 			}));
 

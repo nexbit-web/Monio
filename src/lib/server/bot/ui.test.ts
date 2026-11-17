@@ -40,8 +40,8 @@ describe('команды', () => {
 });
 
 describe('клавиатура внизу', () => {
-	it('главный экран: расход и доход первыми, «Команды» — вход в остальное', () => {
-		expect(MAIN_ROWS[0]).toEqual(['expense', 'income']);
+	it('главный экран: расход, доход и «отложить» первыми, «Команды» — вход в остальное', () => {
+		expect(MAIN_ROWS[0]).toEqual(['expense', 'income', 'save']);
 		expect(MAIN_ROWS.flat()).toContain('commands');
 		expect(MAIN_ROWS.every((row) => row.length <= 3)).toBe(true);
 	});
@@ -52,11 +52,12 @@ describe('клавиатура внизу', () => {
 		expect(COMMAND_ROWS.at(-1)).toContain('main');
 	});
 
-	it('расход — красная кнопка, доход — зелёная, назад — синяя', () => {
+	it('расход — красная кнопка, доход — зелёная, «відкласти» — обычная, назад — синяя', () => {
 		const first = mainKeyboard.keyboard[0];
 		expect(first).toEqual([
 			{ text: '− Витрата', style: 'danger' },
-			{ text: '+ Дохід', style: 'success' }
+			{ text: '+ Дохід', style: 'success' },
+			{ text: '🐷 Відкласти' }
 		]);
 		expect(commandsKeyboard.keyboard.flat()).toContainEqual({ text: '‹ Назад', style: 'primary' });
 	});

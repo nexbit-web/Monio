@@ -18,7 +18,6 @@
 	import Wallet from '@lucide/svelte/icons/wallet';
 	import NavIcon from '$lib/components/nav-icon.svelte';
 	import Section from './section.svelte';
-	import Bars from './ui/bars.svelte';
 	import Callout from './ui/callout.svelte';
 	import Chat from './ui/chat.svelte';
 	import Commands from './ui/commands.svelte';
@@ -92,8 +91,8 @@
 			},
 			{
 				icon: Gauge,
-				title: 'Limits',
-				text: 'Set how much you want to spend and Monio warns you when you go over.'
+				title: 'Goal — $100 a month',
+				text: 'Saved some money? Send the bot «нз 1000». At the end of the month the Coach tells you whether you hit the goal, and if not — why.'
 			},
 			{
 				icon: Wallet,
@@ -256,9 +255,24 @@
 				text: "The day's transactions; «‹» goes to earlier days"
 			},
 			{
+				cmd: '/week',
+				key: '📈 Тиждень',
+				text: 'Weekly report; the bot sends it itself every Sunday evening'
+			},
+			{
 				cmd: '/month',
 				key: '📅 Місяць',
-				text: "The month's summary: income, expenses, where the money went, limits and a comparison with last month"
+				text: "The month's summary: income, expenses, where the money went and a comparison with last month"
+			},
+			{
+				cmd: '/save',
+				key: '🐷 Відкласти',
+				text: 'How much of the $100 you saved this month; to save — «нз 1000» or «відклав 1000»'
+			},
+			{
+				cmd: '/advice',
+				key: '💡 Поради',
+				text: 'Coach: how the month is going, whether income covers the goal and how much you can spend'
 			},
 			{
 				cmd: '/balance',
@@ -410,6 +424,12 @@
 					>
 				</tr>
 				<tr>
+					<td><span class="navcell"><NavIcon name="advisor" size={16} /> Наставник</span></td>
+					<td
+						>Coach: the $100 monthly goal — how much is saved, how much you can spend, past months.</td
+					>
+				</tr>
+				<tr>
 					<td><span class="navcell"><NavIcon name="transactions" size={16} /> Операции</span></td>
 					<td
 						>Every record: filter by category, account and dates, search comments, export to CSV.</td
@@ -421,7 +441,7 @@
 				</tr>
 				<tr>
 					<td><span class="navcell"><NavIcon name="categories" size={16} /> Категории</span></td>
-					<td>Names, icons, keywords for the bot and limits. Archive what you don't need.</td>
+					<td>Names, icons and keywords for the bot. Archive what you don't need.</td>
 				</tr>
 				<tr>
 					<td><span class="navcell"><NavIcon name="accounts" size={16} /> Счета</span></td>
@@ -440,34 +460,35 @@
 
 <Section
 	lang="en"
-	id="limits"
-	lead="Set how much you want to spend in a category each month, and Monio shows how much is left."
+	id="advisor"
+	lead="One goal — save $100 a month. The Coach tracks whether it's working and tells you how much you can spend."
 >
 	<Steps>
-		<Step title="Open Categories">
-			<p><a href="/categories">Категории</a> → «Изменить» (edit) next to the category.</p>
+		<Step title="Saved money — tell the bot">
+			<p>
+				<Copy text="нз 1000" /> or <Copy text="відклав 1000" /> — the bot moves the money from your main
+				account to the «Накопления» (savings) account, creating it if needed. On the website — a transfer
+				to that account.
+			</p>
 		</Step>
-		<Step title="Enter the limit">
-			<p>The «Лимит в месяц» (monthly limit) field. Leave it empty for no limit.</p>
+		<Step title="See how much is left">
+			<p>
+				The «🐷 Відкласти» button in the bot or the <a href="/advisor">Наставник</a> (Coach) section:
+				how much of the $100 you've saved and how much you can spend per day to still save the rest.
+			</p>
 		</Step>
 	</Steps>
-	<Figure caption="Example: how much of the limit is spent. Going over shows in red.">
-		<Bars
-			title="This month's limits"
-			of="of"
-			over="over the limit by"
-			items={[
-				{ icon: 'groceries', name: 'Groceries', spent: 3450, limit: 5000 },
-				{ icon: 'cafe', name: 'Cafés and restaurants', spent: 2400, limit: 2000 },
-				{ icon: 'transport', name: 'Transport', spent: 640, limit: 1500 }
-			]}
-		/>
-	</Figure>
+	<Callout>
+		Only <b>what you set aside yourself</b> counts toward the goal — not what's simply left on the
+		card. $100 is converted to hryvnias at the NBU rate; change the amount in
+		<a href="/settings#reports">Настройки</a>.
+	</Callout>
 	<p>
-		The limit bar appears on the Overview. After each expense the bot says how much you've spent in
-		that category and warns you when the limit is exceeded. The month summary — <Copy
-			text="/month"
-		/> — lists every exceeded limit.
+		The Coach also tells you whether your income covers the goal in a usual month and how much you
+		can spend then. On the 1st the bot sends the result: whether you hit the goal and by how much,
+		and if not — why: the money was there but not set aside, income was lower than usual, or
+		spending was higher. Every Sunday — a weekly report (<Copy text="/week" />). Turn it off with
+		the button under the report or in <a href="/settings#reports">Настройки</a>.
 	</p>
 </Section>
 

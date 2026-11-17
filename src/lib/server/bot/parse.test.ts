@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractAccount, parseEntry } from './parse';
+import { extractAccount, extractSaving, parseEntry } from './parse';
 import { formatMoney, parseAmount } from '../../money';
 import { matchCategory, learnableWord } from '../finance/categorize';
 import { DEFAULT_EXPENSE_CATEGORIES, DEFAULT_INCOME_CATEGORIES } from '../finance/defaults';
@@ -141,6 +141,30 @@ describe('matchCategory', () => {
 		expect(learnableWord('атб хлеб', expense)).toBeNull();
 		expect(learnableWord('', expense)).toBeNull();
 	});
+});
+
+describe('extractSaving — «отложить» словом', () => {
+	it.each([
+		['нз', ''],
+		['НЗ', ''],
+		['н.з.', ''],
+		['відклав', ''],
+		['відклала на машину', 'на машину'],
+		['відкласти', ''],
+		['отложил', ''],
+		['отложила в отпуск', 'в отпуск'],
+		['откладываю', ''],
+		['в накопления', ''],
+		['на накопичення', ''],
+		['у нз готівкою', 'готівкою']
+	])('«%s» — отложить, остаётся «%s»', (note, rest) =>
+		expect(extractSaving(note)).toEqual({ note: rest })
+	);
+
+	it.each(['продукты', 'ssd накопитель', 'накопичувач', 'кава', 'низ', ''])(
+		'«%s» — обычная запись',
+		(note) => expect(extractSaving(note)).toBeNull()
+	);
 });
 
 describe('extractAccount — счёт словом в сообщении', () => {
